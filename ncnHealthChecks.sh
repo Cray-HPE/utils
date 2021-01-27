@@ -22,7 +22,7 @@
 #
 
 echo "             +++++ NCN Health Checks +++++"
-echo "=== Can Be Executed on any worker or master ncn node ==="
+echo "=== Can be executed on any worker or master ncn node ==="
 hostName=$(hostname)
 echo "=== Executing on $hostName, $(date) ==="
 
