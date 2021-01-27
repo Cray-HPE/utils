@@ -8,8 +8,7 @@
 #    Report Ceph health status
 #    Report health of Etcd clusters in services namespace
 #    Report the number of pods on which worker node for each Etcd cluster
-#    List automated Etcd backups for BOS, BSS, CRUS DNS and
-#    Slingshot Controlleres
+#    List automated Etcd backups for BOS, BSS, CRUS and DNS 
 #    Report ncn node uptimes
 #    Report worker ncn node pod counts
 #    Report pods yet to reach the running state
@@ -17,9 +16,9 @@
 # Returned results are not verified. Information is provided to aide in
 # analysis of the results.
 #
-# The ncnHealthChecks script can be run on any ncn node from any directory. 
-# The ncnHealthChecks script can be run before and after an NCN has been
-# rebooted.
+# The ncnHealthChecks script can be run on any worker or master ncn node from
+# any directory. The ncnHealthChecks script can be run before and after an 
+# NCN node is rebooted.
 #
 
 echo "             +++++ NCN Health Checks +++++"
@@ -102,11 +101,11 @@ done
 
 echo
 echo "=== Etcd Clusters with Automatic Etcd Back-ups Configured: ==="
-echo "=== BOS, BSS, CRUS, DNS and Slingshot Controllers ==="
+echo "=== BOS, BSS, CRUS, DNS and FAS ==="
 echo "=== May want to ensure that automated back-ups are up to-date ==="
 echo "=== and that automated back-ups continue after NCN worker reboot. ==="
 echo "=== Clusters without Automated Backups: ==="
-echo "=== FAS, HBTD, HMNFD, REDS, UAS & CPS ==="
+echo "=== HBTD, HMNFD, REDS, UAS & CPS ==="
 date
 kubectl exec -it -n operators $(kubectl get pod -n operators | \
 grep etcd-backup-restore | head -1 | awk '{print $1}') -c boto3 -- list_backups ""
