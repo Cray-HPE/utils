@@ -120,7 +120,7 @@ echo
 echo;
 echo "=== NCN node uptimes: ==="
 echo "=== date; for h in ncn-w00{1,2,3} ncn-s00{1,2,3} ncn-m00{1,2,3}; do echo\
- -n "$h: "; ssh $sshOptions \$h uptime; done ==="
+ "\$h: "; ssh $sshOptions \$h uptime; done ==="
 date; for h in ncn-w00{1,2,3} ncn-s00{1,2,3} ncn-m00{1,2,3}; \
       do echo "$h:"; ssh $sshOptions $h uptime; done
 echo;
