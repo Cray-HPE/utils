@@ -22,27 +22,29 @@
 #
 
 echo "             +++++ NCN Health Checks +++++"
-echo "=== Can be executed on any worker or master ncn node ==="
+echo "=== Can be executed on any worker or master ncn node. ==="
 hostName=$(hostname)
 echo "=== Executing on $hostName, $(date) ==="
 
 echo
-echo "=== Check Kubernetes' Master and Worker Node Status ==="
-echo "=== Verify Kubernetes' Node \"Ready\" Status and Version ==="
+echo "=== Check Kubernetes' Master and Worker Node Status. ==="
+echo "=== Verify Kubernetes' Node \"Ready\" Status and Version. ==="
 date
 kubectl get nodes -o wide
 echo
 
 echo
-echo "=== Check Ceph Health Status ==="
-echo "=== Verify \"health: HEALTH_OK\" Status ==="
+echo "=== Check Ceph Health Status. ==="
+echo "=== Verify \"health: HEALTH_OK\" Status. ==="
 echo "=== At times a status of HEALTH_WARN, too few PGs per OSD, and/or large \
-omap objects, may be okay ==="
+omap objects, may be okay. ==="
+sshOptions="-q -o StrictHostKeyChecking=no"
+echo "=== date;  ssh $sshOptions ncn-s001 ceph -s; ==="
 date
-ssh ncn-s001 ceph -s
+ssh $sshOptions ncn-s001 ceph -s
 
 echo
-echo "=== Check the Health of the Etcd Clusters in the Services Namespace ==="
+echo "=== Check the Health of the Etcd Clusters in the Services Namespace. ==="
 echo "=== Verify a \"healthy\" Report for Each Etcd Pod. ==="
 date;
 for pod in $(kubectl get pods -l app=etcd -n services \
@@ -69,7 +71,7 @@ done
 
 echo
 echo "=== Check if any \"alarms\" are set for any of the Etcd Clusters in the \
-Services Namespace ==="
+Services Namespace. ==="
 echo "=== An empty list is returned if no alarms are set ==="
 for pod in $(kubectl get pods -l app=etcd -n services \
                      -o jsonpath='{.items[*].metadata.name}')
@@ -80,8 +82,8 @@ do
 done
 
 echo
-echo "=== Check the health of Etcd Cluster's database in the Services Namespace ==="
-echo "=== PASS or FAIL status returned ==="
+echo "=== Check the health of Etcd Cluster's database in the Services Namespace. ==="
+echo "=== PASS or FAIL status returned. ==="
 for pod in $(kubectl get pods -l app=etcd -n services \
                      -o jsonpath='{.items[*].metadata.name}')
 do
@@ -106,6 +108,9 @@ echo "=== May want to ensure that automated back-ups are up to-date ==="
 echo "=== and that automated back-ups continue after NCN worker reboot. ==="
 echo "=== Clusters without Automated Backups: ==="
 echo "=== HBTD, HMNFD, REDS, UAS & CPS ==="
+echo "=== date; kubectl exec -it -n operators \$(kubectl get pod -n operators \
+| grep etcd-backup-restore | head -1 | awk '{print \$1}') -c boto3 -- \
+list_backups \"\"; ==="
 date
 kubectl exec -it -n operators $(kubectl get pod -n operators | \
 grep etcd-backup-restore | head -1 | awk '{print $1}') -c boto3 -- list_backups ""
@@ -113,13 +118,15 @@ date
 echo
 
 echo;
+echo "=== NCN node uptimes: ==="
 echo "=== date; for h in ncn-w00{1,2,3} ncn-s00{1,2,3} ncn-m00{1,2,3}; do echo\
- -n "$h: "; ssh \$h uptime; done ==="
+ -n "$h: "; ssh $sshOptions \$h uptime; done ==="
 date; for h in ncn-w00{1,2,3} ncn-s00{1,2,3} ncn-m00{1,2,3}; \
-      do echo "$h:"; ssh $h uptime; done
+      do echo "$h:"; ssh $sshOptions $h uptime; done
 echo;
 
 echo;
+echo "=== Worker ncn node pod counts: ==="
 echo "=== date; kubectl get pods -A -o wide | grep -v Completed | grep w001 | wc -l ==="
 date; kubectl get pods -A -o wide | grep -v Completed | grep w001 | wc -l
 echo;
@@ -131,6 +138,7 @@ date; kubectl get pods -A -o wide | grep -v Completed | grep w003 | wc -l
 echo;
 
 echo
+echo "=== Pods yet to reach the running state: ==="
 echo "=== kubectl get pods -A -o wide | grep -v \"Completed\|Running\" ==="
 date
 kubectl get pods -A -o wide | grep -v "Completed\|Running"
