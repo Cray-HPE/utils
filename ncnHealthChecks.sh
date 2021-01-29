@@ -38,9 +38,9 @@ echo "=== Check Ceph Health Status. ==="
 echo "=== Verify \"health: HEALTH_OK\" Status. ==="
 echo "=== At times a status of HEALTH_WARN, too few PGs per OSD, and/or large \
 omap objects, may be okay. ==="
-sshOptions="-q -o StrictHostKeyChecking=no"
-echo "=== date;  ssh $sshOptions ncn-s001 ceph -s; ==="
+echo "=== date; ssh ncn-s001 ceph -s; ==="
 date
+sshOptions="-q -o StrictHostKeyChecking=no"
 ssh $sshOptions ncn-s001 ceph -s
 
 echo
@@ -120,7 +120,7 @@ echo
 echo;
 echo "=== NCN node uptimes: ==="
 echo "=== date; for h in ncn-w00{1,2,3} ncn-s00{1,2,3} ncn-m00{1,2,3}; do echo\
- "\$h:"; ssh $sshOptions \$h uptime; done ==="
+ "\$h:"; ssh \$h uptime; done ==="
 date; for h in ncn-w00{1,2,3} ncn-s00{1,2,3} ncn-m00{1,2,3}; \
       do echo "$h:"; ssh $sshOptions $h uptime; done
 echo;
