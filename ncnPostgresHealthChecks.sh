@@ -7,7 +7,9 @@
 #
 # Returned results are not verified.
 #
-# The ncnPostgresHealthChecks script can be run on any ncn node from any directory.
+# The ncnPostgresHealthChecks script can be run on any worker or master ncn
+# node from any directory. The ncnPostgresHealthChecks script can be run
+# before and after an NCN node is rebooted.
 #
 
 echo "             +++++ NCN Postgres Health Checks +++++";
