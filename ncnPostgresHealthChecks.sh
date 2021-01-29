@@ -13,7 +13,7 @@
 #
 
 echo "             +++++ NCN Postgres Health Checks +++++";
-echo "=== Can Be Executed on any ncn node. ==="
+echo "=== Can Be Executed on any ncn worker or master node. ==="
 hostName=$(hostname)
 echo "=== Executing on $hostName, $(date) ==="
 
