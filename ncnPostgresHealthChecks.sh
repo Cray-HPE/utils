@@ -49,7 +49,7 @@ do
         numMembers=$(echo "$members" | wc -l)
 	firstMember=$(echo "$members" | head -1)
         
-        # Determine patroni version - remove carriage without line feed:
+        # Determine patroni version - remove carriage return without line feed:
         patronictlVersion=$(kubectl exec -it -n $c_ns -c postgres $firstMember \
 -- patronictl version | awk '{ sub("\r", "", $3); print $3 }') 
         
