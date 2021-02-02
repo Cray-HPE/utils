@@ -108,6 +108,7 @@ echo "=== May want to ensure that automated back-ups are up to-date ==="
 echo "=== and that automated back-ups continue after NCN worker reboot. ==="
 echo "=== Clusters without Automated Backups: ==="
 echo "=== HBTD, HMNFD, REDS, UAS & CPS ==="
+echo "=== Automatic backups generated after cluster has been running 24 hours. ==="
 echo "=== date; kubectl exec -it -n operators \$(kubectl get pod -n operators \
 | grep etcd-backup-restore | head -1 | awk '{print \$1}') -c boto3 -- \
 list_backups \"\"; ==="
