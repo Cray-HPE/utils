@@ -8,7 +8,7 @@ Name: platform-utils
 Vendor: Hewlett Packard Enterprise Company
 License: HPE Proprietary 
 Summary: Platform utils deployment
-Version: 0.1.4
+Version: 0.1.5
 Release: %(echo ${BUILD_METADATA})
 Source: %{name}-%{version}.tar.bz2
 
