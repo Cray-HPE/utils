@@ -8,6 +8,8 @@
 #    Report Ceph health status
 #    Report health of Etcd clusters in services namespace
 #    Report the number of pods on which worker node for each Etcd cluster
+#    Report any \"alarms\" set for any of the Etcd clusters
+#    Report health of Etcd cluster's database 
 #    List automated Etcd backups for BOS, BSS, CRUS and DNS 
 #    Report ncn node uptimes
 #    Report worker ncn node pod counts
@@ -26,6 +28,28 @@ echo "=== Can be executed on any worker or master ncn node. ==="
 hostName=$(hostname)
 echo "=== Executing on $hostName, $(date) ==="
 
+sshOptions="-q -o StrictHostKeyChecking=no"
+
+# Get master nodes:
+mNcnNodes=$(kubectl get nodes --selector='node-role.kubernetes.io/master' \
+                    --no-headers=true | awk '{print $1}' | tr "\n", " ") 
+
+# Get first master node - should not be the PIT node:
+firstMaster=$(echo $mNcnNodes | awk '{print $1}')
+
+# Get worker nodes:
+wNcnNodes=$(kubectl get node --selector='!node-role.kubernetes.io/master' \
+                    --no-headers=true | awk '{print $1}' | tr "\n", " ")
+
+# Get storage nodes:
+sNcnNodes=$(ssh $sshOptions $firstMaster ceph node ls osd | \
+                 jq -r 'keys | join(" ")')
+
+ncnNodes=$mNcnNodes" "$wNcnNodes" "$sNcnNodes
+echo "=== NCN Master nodes: $mNcnNodes ==="
+echo "=== NCN Worker nodes: $wNcnNodes ==="
+echo "=== NCN Storage nodes: $sNcnNodes ==="
+
 echo
 echo "=== Check Kubernetes' Master and Worker Node Status. ==="
 echo "=== Verify Kubernetes' Node \"Ready\" Status and Version. ==="
@@ -38,10 +62,9 @@ echo "=== Check Ceph Health Status. ==="
 echo "=== Verify \"health: HEALTH_OK\" Status. ==="
 echo "=== At times a status of HEALTH_WARN, too few PGs per OSD, and/or large \
 omap objects, may be okay. ==="
-echo "=== date; ssh ncn-s001 ceph -s; ==="
+echo "=== date; ssh $firstMaster ceph -s; ==="
 date
-sshOptions="-q -o StrictHostKeyChecking=no"
-ssh $sshOptions ncn-s001 ceph -s
+ssh $sshOptions $firstMaster ceph -s
 
 echo
 echo "=== Check the Health of the Etcd Clusters in the Services Namespace. ==="
@@ -102,6 +125,7 @@ do
 done
 
 echo
+echo "=== List automated etcd backups on system. ==="
 echo "=== Etcd Clusters with Automatic Etcd Back-ups Configured: ==="
 echo "=== BOS, BSS, CRUS, DNS and FAS ==="
 echo "=== May want to ensure that automated back-ups are up to-date ==="
@@ -118,27 +142,27 @@ grep etcd-backup-restore | head -1 | awk '{print $1}') -c boto3 -- list_backups 
 date
 echo
 
-echo;
-echo "=== NCN node uptimes: ==="
-echo "=== date; for h in ncn-w00{1,2,3} ncn-s00{1,2,3} ncn-m00{1,2,3}; do echo\
- "\$h:"; ssh \$h uptime; done ==="
-date; for h in ncn-w00{1,2,3} ncn-s00{1,2,3} ncn-m00{1,2,3}; \
-      do echo "$h:"; ssh $sshOptions $h uptime; done
-echo;
-
-echo;
-echo "=== Worker ncn node pod counts: ==="
-echo "=== date; kubectl get pods -A -o wide | grep -v Completed | grep w001 | wc -l ==="
-date; kubectl get pods -A -o wide | grep -v Completed | grep w001 | wc -l
-echo;
-echo "=== date; kubectl get pods -A -o wide | grep -v Completed | grep w002 | wc -l ==="
-date; kubectl get pods -A -o wide | grep -v Completed | grep w002 | wc -l
-echo;
-echo "=== date; kubectl get pods -A -o wide | grep -v Completed | grep w003 | wc -l ==="
-date; kubectl get pods -A -o wide | grep -v Completed | grep w003 | wc -l
-echo;
-
+echo "=== NCN node uptimes ==="
+echo "=== NCN Master nodes: $mNcnNodes ==="
+echo "=== NCN Worker nodes: $wNcnNodes ==="
+echo "=== NCN Storage nodes: $sNcnNodes ==="
+echo "=== date; for n in $ncnNodes; do echo\
+ "\$n:"; ssh \$n uptime; done ==="
+date; for n in $ncnNodes; \
+      do echo "$n:"; ssh $sshOptions $n uptime; done
 echo
+
+echo "=== Worker ncn node pod counts ==="
+echo "=== NCN Worker nodes: $wNcnNodes ==="
+echo "=== date; kubectl get pods -A -o wide | grep -v Completed | grep ncn-XXX \
+| wc -l ==="
+date; for n in $wNcnNodes;\
+      do
+          echo -n "$n: ";
+          kubectl get pods -A -o wide | grep -v Completed | grep $n | wc -l;
+      done
+echo
+
 echo "=== Pods yet to reach the running state: ==="
 echo "=== kubectl get pods -A -o wide | grep -v \"Completed\|Running\" ==="
 date
