@@ -34,20 +34,23 @@ sshOptions="-q -o StrictHostKeyChecking=no"
 mNcnNodes=$(kubectl get nodes --selector='node-role.kubernetes.io/master' \
                     --no-headers=true | awk '{print $1}' | tr "\n", " ") 
 
-# Get first master node - should not be the PIT node:
-firstMaster=$(echo $mNcnNodes | awk '{print $1}')
-
 # Get worker nodes:
 wNcnNodes=$(kubectl get node --selector='!node-role.kubernetes.io/master' \
                     --no-headers=true | awk '{print $1}' | tr "\n", " ")
+
+# Get first master node - should not be the PIT node:
+firstMaster=$(echo $mNcnNodes | awk '{print $1}')
 
 # Get storage nodes:
 sNcnNodes=$(ssh $sshOptions $firstMaster ceph node ls osd | \
                  jq -r 'keys | join(" ")')
 
-ncnNodes=$mNcnNodes" "$wNcnNodes" "$sNcnNodes
-echo "=== NCN Master nodes: $mNcnNodes ==="
-echo "=== NCN Worker nodes: $wNcnNodes ==="
+# Get first storage node:
+firstStorage=$(echo $sNcnNodes | awk '{print $1}')
+
+ncnNodes=${mNcnNodes}${wNcnNodes}$sNcnNodes
+echo "=== NCN Master nodes: ${mNcnNodes}==="
+echo "=== NCN Worker nodes: ${wNcnNodes}==="
 echo "=== NCN Storage nodes: $sNcnNodes ==="
 
 echo
@@ -62,9 +65,9 @@ echo "=== Check Ceph Health Status. ==="
 echo "=== Verify \"health: HEALTH_OK\" Status. ==="
 echo "=== At times a status of HEALTH_WARN, too few PGs per OSD, and/or large \
 omap objects, may be okay. ==="
-echo "=== date; ssh $firstMaster ceph -s; ==="
+echo "=== date; ssh $firstStorage ceph -s; ==="
 date
-ssh $sshOptions $firstMaster ceph -s
+ssh $sshOptions $firstStorage ceph -s
 
 echo
 echo "=== Check the Health of the Etcd Clusters in the Services Namespace. ==="
@@ -143,8 +146,8 @@ date
 echo
 
 echo "=== NCN node uptimes ==="
-echo "=== NCN Master nodes: $mNcnNodes ==="
-echo "=== NCN Worker nodes: $wNcnNodes ==="
+echo "=== NCN Master nodes: ${mNcnNodes}==="
+echo "=== NCN Worker nodes: ${wNcnNodes}==="
 echo "=== NCN Storage nodes: $sNcnNodes ==="
 echo "=== date; for n in $ncnNodes; do echo\
  "\$n:"; ssh \$n uptime; done ==="
@@ -153,7 +156,7 @@ date; for n in $ncnNodes; \
 echo
 
 echo "=== Worker ncn node pod counts ==="
-echo "=== NCN Worker nodes: $wNcnNodes ==="
+echo "=== NCN Worker nodes: ${wNcnNodes}==="
 echo "=== date; kubectl get pods -A -o wide | grep -v Completed | grep ncn-XXX \
 | wc -l ==="
 date; for n in $wNcnNodes;\
