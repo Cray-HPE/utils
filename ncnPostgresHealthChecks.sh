@@ -57,8 +57,8 @@ do
 kubectl exec -it -n $c_ns -c postgres $member_i -- patronictl version | \
 awk '{ sub("\r", "", $3); print $3 }'; ) 
             
-            # Check if response in case command hung and timed out.
-            # If so, check the next member:
+            # Check response in case command hung or timed out.
+            # If no response, check the next cluster member:
             if [[ -n $patronictlVersion ]]
             then
                 break
