@@ -47,22 +47,38 @@ do
         members="$(kubectl get pod -n $c_ns -l "cluster-name=$c_name" \
                            -o custom-columns=NAME:.metadata.name --no-headers)"
         numMembers=$(echo "$members" | wc -l)
-	firstMember=$(echo "$members" | head -1)
         
-        # Determine patroni version - remove carriage return without line feed:
-        patronictlVersion=$(kubectl exec -it -n $c_ns -c postgres $firstMember \
--- patronictl version | awk '{ sub("\r", "", $3); print $3 }') 
+        # Determine patroni version - remove carriage return without line feed.
+        # Set a delay of 4 seconds for use with timeout command:
+        Delay=4
+        for member_i in $members
+        do
+            patronictlVersion=$(timeout -k 4 --preserve-status --foreground $Delay \
+kubectl exec -it -n $c_ns -c postgres $member_i -- patronictl version | \
+awk '{ sub("\r", "", $3); print $3 }'; ) 
+            
+            # Check response in case command hung or timed out.
+            # If no response, check the next cluster member:
+            if [[ -n $patronictlVersion ]]
+            then
+                break
+            else
+                continue
+            fi
+        done
         
 	patronictlCmd=""
 	case $patronictlVersion in
-	    "1.6.4" )
-                patronictlCmd="\$(kubectl -n $c_ns exec \$m -- patronictl list \
-2>/dev/null | awk ' \$8 == \"Leader\" && \$10 == \"running\" {print \$4}')"	    
-		;;
-	    "1.6.5" )
-                patronictlCmd="\$(kubectl -n $c_ns exec \$m -- patronictl list \
-2>/dev/null | awk ' \$6 == \"Leader\" && \$8 == \"running\" {print \$2}')"
-		;;
+            "1.6.4" )
+                patronictlCmd="\$(timeout -k 4 --preserve-status --foreground \
+$Delay kubectl -n $c_ns exec \$m -- patronictl list 2>/dev/null | awk ' \$8 == \
+ \"Leader\" && \$10 == \"running\" {print \$4}')"	    
+                ;;
+            "1.6.5" )
+                patronictlCmd="\$(timeout -k 4 --preserve-status --foreground \
+$Delay kubectl -n $c_ns exec \$m -- patronictl list 2>/dev/null | awk ' \$6 == \
+\"Leader\" && \$8 == \"running\" {print \$2}')"
+                ;;
             * )
                 echo "Unexpected Patronictl version \"$patronictlVersion\" for \
 the $c_name postgres clusters in the $c_ns namespace."
@@ -75,9 +91,10 @@ the $c_name postgres clusters in the $c_ns namespace."
         esac
         
 	# Find the leader:
+        podDescribe=" non-leader"
         for m in $members
         do
-	    eval leader="$patronictlCmd"
+            eval leader="$patronictlCmd"
             if [ -n "$leader" ]
             then
                 break;
@@ -85,9 +102,10 @@ the $c_name postgres clusters in the $c_ns namespace."
         done
         if [ -z "$leader" ]
         then
+            podDescribe=""
             echo "=== ********************************************************\
 ************************** ==="
-            echo "=== ****** Did not find a leader for the $c_name cluster in \
+            echo "=== ****** Unable to determine a leader for the $c_name cluster in \
 $numMembers pods ****** ==="
             echo "=== ********************************************************\
 ************************** ==="
@@ -116,7 +134,7 @@ leader pod $leader ---"
         
         for o in $other
         do
-            echo; echo "--- Logs for $c_ns non-leader pod $o ---"
+            echo; echo "--- Logs for $c_ns$podDescribe pod $o ---"
             kubectl logs -n $c_ns $o postgres | awk '{$1="";$2=""; print $line}'\
                 | egrep "INFO|ERROR" | egrep -v "NewConnection|bootstrapping" \
                 | sort -u

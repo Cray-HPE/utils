@@ -3,14 +3,13 @@
 # Copyright 2020-2021 Hewlett Packard Enterprise Development LP
 #
 # The ncnHealthChecks script executes a number of NCN system health checks:
-#    Report Cray release info
 #    Report Kubernetes status for Master and worker nodes
 #    Report Ceph health status
 #    Report health of Etcd clusters in services namespace
 #    Report the number of pods on which worker node for each Etcd cluster
-#    Report any \"alarms\" set for any of the Etcd clusters
+#    Report any "alarms" set for any of the Etcd clusters
 #    Report health of Etcd cluster's database 
-#    List automated Etcd backups for BOS, BSS, CRUS and DNS 
+#    List automated Etcd backups for BOS, BSS, CRUS, DNS and FAS 
 #    Report ncn node uptimes
 #    Report worker ncn node pod counts
 #    Report pods yet to reach the running state
@@ -69,6 +68,8 @@ echo "=== date; ssh $firstStorage ceph -s; ==="
 date
 ssh $sshOptions $firstStorage ceph -s
 
+# Set a delay of 4 seconds for use with timeout command:
+Delay=4
 echo
 echo "=== Check the Health of the Etcd Clusters in the Services Namespace. ==="
 echo "=== Verify a \"healthy\" Report for Each Etcd Pod. ==="
@@ -77,7 +78,9 @@ for pod in $(kubectl get pods -l app=etcd -n services \
 		     -o jsonpath='{.items[*].metadata.name}')
 do
     echo "### ${pod} ###"
-    kubectl -n services exec ${pod} -- /bin/sh -c "ETCDCTL_API=3 etcdctl endpoint health"
+    timeout $Delay kubectl -n services exec ${pod} -- /bin/sh -c \
+            "ETCDCTL_API=3 etcdctl endpoint health"; if [[ $? -ne 0 ]]; \
+            then echo "FAILED - Pod Not Healthy"; fi
 done
 echo
 
@@ -103,9 +106,11 @@ for pod in $(kubectl get pods -l app=etcd -n services \
                      -o jsonpath='{.items[*].metadata.name}')
 do
     echo "### ${pod} Alarms Set: ###"
-    kubectl -n services exec ${pod} -- /bin/sh \
-            -c "ETCDCTL_API=3 etcdctl alarm list"
+    timeout $Delay kubectl -n services exec ${pod} -- /bin/sh \
+            -c "ETCDCTL_API=3 etcdctl alarm list"; if [[ $? -ne 0 ]];\
+            then echo "FAILED - Pod Not Healthy"; fi
 done
+echo
 
 echo
 echo "=== Check the health of Etcd Cluster's database in the Services Namespace. ==="
@@ -114,11 +119,12 @@ for pod in $(kubectl get pods -l app=etcd -n services \
                      -o jsonpath='{.items[*].metadata.name}')
 do
     echo "### ${pod} Etcd Database Check: ###"
-    dbc=$(kubectl -n services exec ${pod} -- /bin/sh \
-                  -c "ETCDCTL_API=3 etcdctl put foo fooCheck && \
-                  ETCDCTL_API=3 etcdctl get foo && \
-                  ETCDCTL_API=3 etcdctl del foo && \
-                  ETCDCTL_API=3 etcdctl get foo" 2>&1)
+    dbc=$(timeout  --preserve-status --foreground $Delay kubectl \
+                   -n services exec ${pod} -- /bin/sh \
+                   -c "ETCDCTL_API=3 etcdctl put foo fooCheck && \
+                   ETCDCTL_API=3 etcdctl get foo && \
+                   ETCDCTL_API=3 etcdctl del foo && \
+                   ETCDCTL_API=3 etcdctl get foo" 2>&1)
     echo $dbc | awk '{ if ( $1=="OK" && $2=="foo" && \
                        $3=="fooCheck" && $4=="1" && $5=="" ) print \
     "PASS:  " PRINT $0; 
@@ -126,6 +132,7 @@ do
     print "FAILED DATABASE CHECK - EXPECTED: OK foo fooCheck 1 \
     GOT: " PRINT $0 }'
 done
+echo
 
 echo
 echo "=== List automated etcd backups on system. ==="
@@ -145,6 +152,7 @@ grep etcd-backup-restore | head -1 | awk '{print $1}') -c boto3 -- list_backups 
 date
 echo
 
+echo
 echo "=== NCN node uptimes ==="
 echo "=== NCN Master nodes: ${mNcnNodes}==="
 echo "=== NCN Worker nodes: ${wNcnNodes}==="
@@ -155,6 +163,7 @@ date; for n in $ncnNodes; \
       do echo "$n:"; ssh $sshOptions $n uptime; done
 echo
 
+echo
 echo "=== Worker ncn node pod counts ==="
 echo "=== NCN Worker nodes: ${wNcnNodes}==="
 echo "=== date; kubectl get pods -A -o wide | grep -v Completed | grep ncn-XXX \
@@ -166,6 +175,7 @@ date; for n in $wNcnNodes;\
       done
 echo
 
+echo
 echo "=== Pods yet to reach the running state: ==="
 echo "=== kubectl get pods -A -o wide | grep -v \"Completed\|Running\" ==="
 date
