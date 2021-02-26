@@ -49,8 +49,8 @@ do
         numMembers=$(echo "$members" | wc -l)
         
         # Determine patroni version - remove carriage return without line feed.
-        # Set a delay of 4 seconds for use with timeout command:
-        Delay=4
+        # Set a delay of 10 seconds for use with timeout command:
+        Delay=10
         for member_i in $members
         do
             patronictlVersion=$(timeout -k 4 --preserve-status --foreground $Delay \

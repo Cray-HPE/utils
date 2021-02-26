@@ -68,8 +68,8 @@ echo "=== date; ssh $firstStorage ceph -s; ==="
 date
 ssh $sshOptions $firstStorage ceph -s
 
-# Set a delay of 4 seconds for use with timeout command:
-Delay=4
+# Set a delay of 10 seconds for use with timeout command:
+Delay=10
 echo
 echo "=== Check the Health of the Etcd Clusters in the Services Namespace. ==="
 echo "=== Verify a \"healthy\" Report for Each Etcd Pod. ==="
