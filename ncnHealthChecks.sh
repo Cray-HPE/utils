@@ -8,9 +8,10 @@
 #    Report health of Etcd clusters in services namespace
 #    Report the number of pods on which worker node for each Etcd cluster
 #    Report any "alarms" set for any of the Etcd clusters
-#    Report health of Etcd cluster's database 
-#    List automated Etcd backups for BOS, BSS, CRUS, DNS and FAS 
+#    Report health of Etcd cluster's database
+#    List automated Etcd backups for BOS, BSS, CRUS, DNS and FAS
 #    Report ncn node uptimes
+#    Report NCN node xnames and metal.no-wipe status
 #    Report worker ncn node pod counts
 #    Report pods yet to reach the running state
 #
@@ -18,7 +19,7 @@
 # analysis of the results.
 #
 # The ncnHealthChecks script can be run on any worker or master ncn node from
-# any directory. The ncnHealthChecks script can be run before and after an 
+# any directory. The ncnHealthChecks script can be run before and after an
 # NCN node is rebooted.
 #
 
@@ -31,7 +32,7 @@ sshOptions="-q -o StrictHostKeyChecking=no"
 
 # Get master nodes:
 mNcnNodes=$(kubectl get nodes --selector='node-role.kubernetes.io/master' \
-                    --no-headers=true | awk '{print $1}' | tr "\n", " ") 
+                    --no-headers=true | awk '{print $1}' | tr "\n", " ")
 
 # Get worker nodes:
 wNcnNodes=$(kubectl get node --selector='!node-role.kubernetes.io/master' \
@@ -68,8 +69,8 @@ echo "=== date; ssh $firstStorage ceph -s; ==="
 date
 ssh $sshOptions $firstStorage ceph -s
 
-# Set a delay of 10 seconds for use with timeout command:
-Delay=10
+# Set a delay of 12 seconds for use with timeout command:
+Delay=12
 echo
 echo "=== Check the Health of the Etcd Clusters in the Services Namespace. ==="
 echo "=== Verify a \"healthy\" Report for Each Etcd Pod. ==="
@@ -127,7 +128,7 @@ do
                    ETCDCTL_API=3 etcdctl get foo" 2>&1)
     echo $dbc | awk '{ if ( $1=="OK" && $2=="foo" && \
                        $3=="fooCheck" && $4=="1" && $5=="" ) print \
-    "PASS:  " PRINT $0; 
+    "PASS:  " PRINT $0;
     else \
     print "FAILED DATABASE CHECK - EXPECTED: OK foo fooCheck 1 \
     GOT: " PRINT $0 }'
@@ -159,8 +160,44 @@ echo "=== NCN Worker nodes: ${wNcnNodes}==="
 echo "=== NCN Storage nodes: $sNcnNodes ==="
 echo "=== date; for n in $ncnNodes; do echo\
  "\$n:"; ssh \$n uptime; done ==="
-date; for n in $ncnNodes; \
+date; for n in $ncnNodes
       do echo "$n:"; ssh $sshOptions $n uptime; done
+echo
+
+echo
+echo "=== NCN node xnames and metal.no-wipe status ==="
+echo "=== metal.no-wipe=1, expected setting - the client ==="
+echo "=== already has the right partitions and a bootable ROM. ==="
+echo "=== NCN Master nodes: ${mNcnNodes}==="
+echo "=== NCN Worker nodes: ${wNcnNodes}==="
+echo "=== NCN Storage nodes: $sNcnNodes ==="
+# Get token:
+export TOKEN=$(curl -k -s -S -d grant_type=client_credentials -d client_id=admin-client -d client_secret=`kubectl get secrets admin-client-auth -o jsonpath='{.data.client-secret}' | base64 -d` https://api-gw-service-nmn.local/keycloak/realms/shasta/protocol/openid-connect/token | jq -r '.access_token')
+if [[ -z $TOKEN ]]
+then
+    echo "Failed to get token, skipping xnames checks. """
+else
+    date; for ncn_i in $ncnNodes
+          do
+              echo -n "$ncn_i: "
+              xName=$(ssh $sshOptions $ncn_i 'cat /etc/cray/xname')
+              if [[ -z $xName ]]
+              then
+                  echo "Failed to obtain xname for $ncn_i"
+                  continue;
+              fi
+              if [[ $ncn_i == "ncn-m001" ]]
+              then
+                  macAddress=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?name=${xName}" | grep chain)
+                  macAddress=${macAddress#*mac=}
+                  macAddress=${macAddress%&arch*}
+                  noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?mac=${macAddress}&arch=x86" | grep -o metal.no-wipe=[01])
+              else
+                  noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?name=${xName}" | grep -o metal.no-wipe=[01])
+              fi
+              echo "$xName - $noWipe"
+          done
+fi
 echo
 
 echo
