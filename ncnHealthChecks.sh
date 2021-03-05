@@ -11,6 +11,7 @@
 #    Report health of Etcd cluster's database
 #    List automated Etcd backups for BOS, BSS, CRUS, DNS and FAS
 #    Report ncn node uptimes
+#    Report NCN master and worker node resource consumption
 #    Report NCN node xnames and metal.no-wipe status
 #    Report worker ncn node pod counts
 #    Report pods yet to reach the running state
@@ -18,7 +19,7 @@
 # Returned results are not verified. Information is provided to aide in
 # analysis of the results.
 #
-# The ncnHealthChecks script can be run on any worker or master ncn node from
+# The ncnHealthChecks script can be run on any worker or master NCN node from
 # any directory. The ncnHealthChecks script can be run before and after an
 # NCN node is rebooted.
 #
@@ -69,8 +70,8 @@ echo "=== date; ssh $firstStorage ceph -s; ==="
 date
 ssh $sshOptions $firstStorage ceph -s
 
-# Set a delay of 12 seconds for use with timeout command:
-Delay=12
+# Set a delay of 15 seconds for use with timeout command:
+Delay=15
 echo
 echo "=== Check the Health of the Etcd Clusters in the Services Namespace. ==="
 echo "=== Verify a \"healthy\" Report for Each Etcd Pod. ==="
@@ -160,14 +161,29 @@ echo "=== NCN Worker nodes: ${wNcnNodes}==="
 echo "=== NCN Storage nodes: $sNcnNodes ==="
 echo "=== date; for n in $ncnNodes; do echo\
  "\$n:"; ssh \$n uptime; done ==="
-date; for n in $ncnNodes
-      do echo "$n:"; ssh $sshOptions $n uptime; done
+date;
+for n in $ncnNodes
+do
+    echo "$n:";
+    ssh $sshOptions $n uptime;
+done
+echo
+
+echo
+echo "=== NCN master and worker node resource consumption ==="
+echo "=== NCN Master nodes: ${mNcnNodes}==="
+echo "=== NCN Worker nodes: ${wNcnNodes}==="
+echo "=== date; kubectl top nodes ==="
+date;
+kubectl top nodes
 echo
 
 echo
 echo "=== NCN node xnames and metal.no-wipe status ==="
 echo "=== metal.no-wipe=1, expected setting - the client ==="
 echo "=== already has the right partitions and a bootable ROM. ==="
+echo "=== Note that before the PIT node has been rebooted into ncn-m001, ==="
+echo "=== metal.no-wipe status may not available. ==="
 echo "=== NCN Master nodes: ${mNcnNodes}==="
 echo "=== NCN Worker nodes: ${wNcnNodes}==="
 echo "=== NCN Storage nodes: $sNcnNodes ==="
@@ -175,7 +191,7 @@ echo "=== NCN Storage nodes: $sNcnNodes ==="
 export TOKEN=$(curl -k -s -S -d grant_type=client_credentials -d client_id=admin-client -d client_secret=`kubectl get secrets admin-client-auth -o jsonpath='{.data.client-secret}' | base64 -d` https://api-gw-service-nmn.local/keycloak/realms/shasta/protocol/openid-connect/token | jq -r '.access_token')
 if [[ -z $TOKEN ]]
 then
-    echo "Failed to get token, skipping xnames checks. """
+    echo "Failed to get token, skipping metal.no-wipe checks. "
 else
     date; for ncn_i in $ncnNodes
           do
@@ -205,11 +221,12 @@ echo "=== Worker ncn node pod counts ==="
 echo "=== NCN Worker nodes: ${wNcnNodes}==="
 echo "=== date; kubectl get pods -A -o wide | grep -v Completed | grep ncn-XXX \
 | wc -l ==="
-date; for n in $wNcnNodes;\
-      do
-          echo -n "$n: ";
-          kubectl get pods -A -o wide | grep -v Completed | grep $n | wc -l;
-      done
+date;
+for n in $wNcnNodes
+do
+    echo -n "$n: ";
+    kubectl get pods -A -o wide | grep -v Completed | grep $n | wc -l;
+done
 echo
 
 echo
