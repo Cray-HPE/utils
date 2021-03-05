@@ -192,28 +192,28 @@ export TOKEN=$(curl -k -s -S -d grant_type=client_credentials -d client_id=admin
 if [[ -z $TOKEN ]]
 then
     echo "Failed to get token, skipping metal.no-wipe checks. "
-else
-    date; for ncn_i in $ncnNodes
-          do
-              echo -n "$ncn_i: "
-              xName=$(ssh $sshOptions $ncn_i 'cat /etc/cray/xname')
-              if [[ -z $xName ]]
-              then
-                  echo "Failed to obtain xname for $ncn_i"
-                  continue;
-              fi
-              if [[ $ncn_i == "ncn-m001" ]]
-              then
-                  macAddress=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?name=${xName}" | grep chain)
-                  macAddress=${macAddress#*mac=}
-                  macAddress=${macAddress%&arch*}
-                  noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?mac=${macAddress}&arch=x86" | grep -o metal.no-wipe=[01])
-              else
-                  noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?name=${xName}" | grep -o metal.no-wipe=[01])
-              fi
-              echo "$xName - $noWipe"
-          done
 fi
+date;
+for ncn_i in $ncnNodes
+do
+    echo -n "$ncn_i: "
+    xName=$(ssh $sshOptions $ncn_i 'cat /etc/cray/xname')
+    if [[ -z $xName ]]
+    then
+        echo "Failed to obtain xname for $ncn_i"
+        continue;
+    fi
+    if [[ $ncn_i == "ncn-m001" ]]
+    then
+        macAddress=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?name=${xName}" | grep chain)
+        macAddress=${macAddress#*mac=}
+        macAddress=${macAddress%&arch*}
+        noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?mac=${macAddress}&arch=x86" | grep -o metal.no-wipe=[01])
+    else
+        noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?name=${xName}" | grep -o metal.no-wipe=[01])
+    fi
+    echo "$xName - $noWipe"
+done
 echo
 
 echo
