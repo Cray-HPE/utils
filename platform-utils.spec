@@ -30,6 +30,7 @@ the /opt/cray/platform-utils directory.
 %{utils_dir}/ncnHealthChecks.sh
 %{utils_dir}/ncnPostgresHealthChecks.sh
 %{utils_dir}/detect_cpu_throttling.sh
+%{utils_dir}/move_pod.sh
 %{utils_dir}/s3/credentials.json
 %{utils_dir}/s3/download-file.py
 %{utils_dir}/s3/list-objects.py
@@ -46,6 +47,7 @@ install -m 755 ncnGetXnames.sh %{buildroot}%{utils_dir}
 install -m 755 ncnHealthChecks.sh %{buildroot}%{utils_dir}
 install -m 755 ncnPostgresHealthChecks.sh %{buildroot}%{utils_dir}
 install -m 755 detect_cpu_throttling.sh %{buildroot}%{utils_dir}
+install -m 755 move_pod.sh %{buildroot}%{utils_dir}
 install -m 755 s3/list-objects.py %{buildroot}%{utils_dir}/s3
 install -m 755 s3/download-file.py %{buildroot}%{utils_dir}/s3
 install -m 755 s3/credentials.json %{buildroot}%{utils_dir}/s3
