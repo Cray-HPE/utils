@@ -4,7 +4,7 @@
     channel: "casmpet-builds",
     product: "csm",
     target_node: "ncn",
-    fanout_params: ["sle15", "sle15sp1", "sle15sp2"],
+    fanout_params: ["sle15sp1", "sle15sp2"],
     githubPushRepo: "Cray-HPE/utils",
     githubPushBranches: /(release\/.*|master)/
 )
