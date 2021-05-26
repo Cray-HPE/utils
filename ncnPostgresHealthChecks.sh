@@ -44,7 +44,7 @@ do
         c_ns="$(echo $c | awk -F, '{print $1;}')"
         c_name="$(echo $c | awk -F, '{print $2;}')"
         # Get postgres pods for this cluster name:
-        members="$(kubectl get pod -n $c_ns -l "cluster-name=$c_name" \
+        members="$(kubectl get pod -n $c_ns -l "cluster-name=$c_name,application=spilo" \
                            -o custom-columns=NAME:.metadata.name --no-headers)"
         numMembers=$(echo "$members" | wc -l)
         
