@@ -145,9 +145,9 @@ leader pod $leader ---"
         echo
 done
 echo "=== kubectl get pods -A -o wide | grep \"NAME\|postgres-\" |\
- grep -v \"operator\|Completed\" ==="
+ grep -v \"operator\|Completed\|pooler\" ==="
 echo
-kubectl get pods -A -o wide | grep "NAME\|postgres-" | grep -v "operator\|Completed"
+kubectl get pods -A -o wide | grep "NAME\|postgres-" | grep -v "operator\|Completed\|pooler"
 echo
 exit 0;
 
