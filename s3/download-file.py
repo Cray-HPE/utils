@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 #
 # Copyright 2021 Hewlett Packard Enterprise Development LP
 #
@@ -7,6 +7,7 @@ import os
 import sys
 from argparse import ArgumentParser
 import json
+import subprocess
 
 import boto3
 import botocore
@@ -14,9 +15,10 @@ from botocore.config import Config
 S3_CONNECT_TIMEOUT=60
 S3_READ_TIMEOUT=1
 
-with open('credentials.json', 'r') as fd:
-    credentials = json.loads(fd.read())
-
+# get credentials
+j=json.loads(subprocess.check_output(['radosgw-admin', 'user', 'info', '--uid', 'STS']))
+keys=((j['keys'])[0])
+credentials = { 'endpoint_url': 'http://rgw-vip', 'access_key': keys['access_key'], 'secret_key': keys['secret_key'] }
 
 def main():
 

@@ -7,12 +7,15 @@ import os
 import sys
 from argparse import ArgumentParser
 import json
+import subprocess
 
 import boto3
 
 
-with open('credentials.json', 'r') as fd:
-    credentials = json.loads(fd.read())
+# get credentials
+j=json.loads(subprocess.check_output(['radosgw-admin', 'user', 'info', '--uid', 'STS']))
+keys=((j['keys'])[0])
+credentials = { 'endpoint_url': 'http://rgw-vip', 'access_key': keys['access_key'], 'secret_key': keys['secret_key'] }
 
 
 def main():
