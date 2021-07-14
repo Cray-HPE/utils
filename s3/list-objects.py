@@ -8,15 +8,14 @@ import sys
 from argparse import ArgumentParser
 import json
 import subprocess
+from base64 import b64decode
 
 import boto3
 
-
 # get credentials
-j=json.loads(subprocess.check_output(['radosgw-admin', 'user', 'info', '--uid', 'STS']))
-keys=((j['keys'])[0])
-credentials = { 'endpoint_url': 'http://rgw-vip', 'access_key': keys['access_key'], 'secret_key': keys['secret_key'] }
-
+a_key=b64decode(subprocess.check_output(['kubectl', 'get', 'secret', 'sts-s3-credentials', '-o', "jsonpath='{.data.access_key}'"])).decode()
+s_key=b64decode(subprocess.check_output(['kubectl', 'get', 'secret', 'sts-s3-credentials', '-o', "jsonpath='{.data.secret_key}'"])).decode()
+credentials={ 'endpoint_url': 'http://rgw-vip', 'access_key': a_key, 'secret_key': s_key }
 
 def main():
 
