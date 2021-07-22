@@ -203,15 +203,26 @@ do
         echo "Failed to obtain xname for $ncn_i"
         continue;
     fi
+    noWipe=""
+    iter=0
     if [[ $ncn_i == "ncn-m001" ]]
     then
         macAddress=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?name=${xName}" | grep chain)
         macAddress=${macAddress#*mac=}
         macAddress=${macAddress%&arch*}
-        noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?mac=${macAddress}&arch=x86" | grep -o metal.no-wipe=[01])
+        while [[ -z $noWipe && $iter -lt 5 ]]; do
+            noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?mac=${macAddress}&arch=x86" | grep -o metal.no-wipe=[01])
+            if [[ -z $noWipe ]]; then sleep 3; fi
+            iter=$(($iter + 1))
+        done
     else
-        noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?name=${xName}" | grep -o metal.no-wipe=[01])
+        while [[ -z $noWipe && $iter -lt 5 ]]; do
+            noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?name=${xName}" | grep -o metal.no-wipe=[01])
+            if [[ -z $noWipe ]]; then sleep 3; fi
+            iter=$(($iter + 1))
+        done
     fi
+    if [[ -z $noWipe ]]; then noWipe='unavailable'; fi
     echo "$xName - $noWipe"
 done
 echo
