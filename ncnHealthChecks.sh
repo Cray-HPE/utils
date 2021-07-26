@@ -347,7 +347,6 @@ node_resource_consumption() {
     date;
     cpuMemoryFail=0
     kubectl top nodes
-    echo
     nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
     for node in $nodes
     do
@@ -471,10 +470,10 @@ pods_not_running() {
 }
 
 print_end_statement() {
-    echo "NCN Health Check complete. Summary of failures is printed below."
-    if [[ $failureMsg == "" ]]; then echo "No failures to report. All checks passed.";
+    echo "NCN Health Check complete. Summary of failures and warnings is printed below."
+    if [[ $failureMsg == "" ]]; then echo "No failures or warnings to report. All checks passed.";
     else
-        echo -e " --- Failures --- $failureMsg"
+        echo -e " --- Failures and Warnings--- $failureMsg"
     fi
     echo
     echo "Two informative tests were run which checked 'NCN uptimes' and 'worker NCN node pod counts'. These results can be manually checked."
