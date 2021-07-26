@@ -205,23 +205,19 @@ do
     fi
     noWipe=""
     iter=0
-    if [[ $ncn_i == "ncn-m001" ]]
-    then
-        while [[ -z $noWipe && $iter -lt 5 ]]; do    
+    while [[ -z $noWipe && $iter -lt 5 ]]; do
+        if [[ $ncn_i == "ncn-m001" ]]
+        then
             macAddress=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?name=${xName}" | grep chain)
             macAddress=${macAddress#*mac=}
             macAddress=${macAddress%&arch*}
             noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?mac=${macAddress}&arch=x86" | grep -o metal.no-wipe=[01])
-            if [[ -z $noWipe ]]; then sleep 3; fi
-            iter=$(($iter + 1))
-        done
-    else
-        while [[ -z $noWipe && $iter -lt 5 ]]; do
+        else
             noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?name=${xName}" | grep -o metal.no-wipe=[01])
-            if [[ -z $noWipe ]]; then sleep 3; fi
-            iter=$(($iter + 1))
-        done
-    fi
+        fi
+        if [[ -z $noWipe ]]; then sleep 3; fi
+        iter=$(($iter + 1))
+    done
     if [[ -z $noWipe ]]; then noWipe='unavailable'; fi
     echo "$xName - $noWipe"
 done
