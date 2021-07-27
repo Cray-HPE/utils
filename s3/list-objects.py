@@ -33,9 +33,12 @@ def main():
                       aws_secret_access_key=credentials['secret_key'])
 
     response = s3.list_objects_v2(Bucket=args.bucket_name)
-    for item in response['Contents']:
-        print(item['Key'])
 
+    if 'Contents' in response:
+        for item in response['Contents']:
+            print(item['Key'])
+    else:
+        print("Bucket is empty.")
 
 if __name__ == '__main__':
     main()
