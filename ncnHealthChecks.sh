@@ -282,7 +282,8 @@ etcd_backups_check() {
                     echo " -Check date manually. Unable to get date from backup: $backup "
                 else
                     backup_sec=$(date -d "${backup_date}" "+%s")
-                    if [[ $(( $current_date_sec - $backup_sec )) -lt $one_day_sec ]] # check if backup is less that 24 hour old
+                    if [[ -z $backup_sec ]]; then echo "unable to get date from backup name"; fi
+                    if [[ ! -z $backup_sec && $(( $current_date_sec - $backup_sec )) -lt $one_day_sec ]] # check if backup is less that 24 hour old
                     then
                         backup_within_day=1
                     fi
