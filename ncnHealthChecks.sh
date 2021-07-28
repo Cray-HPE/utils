@@ -34,13 +34,13 @@ do
     case "${stack}" in
           s) single_test=$OPTARG;;
           h) echo "usage: ncnHealthCheck.sh  # run all ncnHealthChecks"
-      	         echo "       ncnHealthCheck.sh -s <health_check_name> # run a specific health check"
-	         echo "       (-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
+   	     echo "ncnHealthCheck.sh -s <health_check_name> # run a specific health check"
+	     echo "(-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
 ncn_uptimes, node_resource_consumption, no_wipe_status, node_pod_counts, pods_not_running)"
-             exit 1;;
-	     \?) echo "usage: ncnHealthCheck.sh  # run all ncnHealthChecks"
-	         echo "       ncnHealthCheck.sh -s <health_check_name> # run a specific health check"
-	         echo "       (-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
+         exit 1;;
+	  \?) echo "usage: ncnHealthCheck.sh  # run all ncnHealthChecks"
+	      echo " ncnHealthCheck.sh -s <health_check_name> # run a specific health check"
+	      echo  "(-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
 ncn_uptimes, node_resource_consumption, no_wipe_status, node_pod_counts, pods_not_running)"
                 exit 1;;
     esac
@@ -91,9 +91,11 @@ get_nodes() {
     echo "=== NCN Master nodes: ${mNcnNodes}==="
     echo "=== NCN Worker nodes: ${wNcnNodes}==="
     echo "=== NCN Storage nodes: $sNcnNodes ==="
+    echo
 }
 
 node_status() {
+    echo "**************************************************************************"
     echo
     echo "=== Check Kubernetes' Master and Worker Node Status. ==="
     echo "=== Verify Kubernetes' Node \"Ready\" Status and Version. ==="
@@ -110,11 +112,12 @@ node_status() {
 }
 
 ceph_health_status() {
+    echo "**************************************************************************"
     echo
     echo "=== Check Ceph Health Status. ==="
     echo "=== Verify \"health: HEALTH_OK\" Status. ==="
     echo "=== At times a status of HEALTH_WARN, too few PGs per OSD, and/or large \
-    omap objects, may be okay. ==="
+omap objects, may be okay. ==="
     echo "=== date; ssh $firstStorage ceph -s; ==="
     date
     ssh $sshOptions $firstStorage ceph -s
@@ -130,6 +133,7 @@ ceph_health_status() {
 
 etcd_health_status() {
     etcdHealthFail=0
+    echo "**************************************************************************"
     echo
     echo "=== Check the Health of the Etcd Clusters in the Services Namespace. ==="
     echo "=== Verify a \"healthy\" Report for Each Etcd Pod. ==="
@@ -152,6 +156,7 @@ etcd_health_status() {
 }
 
 etcd_cluster_balance() {
+    echo "**************************************************************************"
     echo
     echo "=== Check the Number of Pods in Each Cluster. Verify they are Balanced. ==="
     echo "=== Each cluster should contain at least three pods, but may contain more. ==="
@@ -191,9 +196,10 @@ etcd_cluster_balance() {
 }
 
 etcd_alarm_check() {
+    echo "**************************************************************************"
     echo
     echo "=== Check if any \"alarms\" are set for any of the Etcd Clusters in the \
-    Services Namespace. ==="
+Services Namespace. ==="
     echo "=== An empty list is returned if no alarms are set ==="
     etcdAlarmFail=0
     for pod in $(kubectl get pods -l app=etcd -n services \
@@ -215,6 +221,7 @@ etcd_alarm_check() {
 }
 
 etcd_database_health() {
+    echo "**************************************************************************"
     echo
     echo "=== Check the health of Etcd Cluster's database in the Services Namespace. ==="
     echo "=== PASS or FAIL status returned. ==="
@@ -249,6 +256,7 @@ etcd_database_health() {
 }
 
 etcd_backups_check() {
+    echo "**************************************************************************"
     echo
     echo "=== List automated etcd backups on system. ==="
     echo "=== Etcd Clusters with Automatic Etcd Back-ups Configured: ==="
@@ -259,8 +267,8 @@ etcd_backups_check() {
     echo "=== HBTD, HMNFD, REDS, UAS & CPS ==="
     echo "=== Automatic backups generated after cluster has been running 24 hours. ==="
     echo "=== date; kubectl exec -it -n operators \$(kubectl get pod -n operators \
-    | grep etcd-backup-restore | head -1 | awk '{print \$1}') -c boto3 -- \
-    list_backups <cluster> ; ===" 
+| grep etcd-backup-restore | head -1 | awk '{print \$1}') -c boto3 -- \
+list_backups <cluster> ; ===" 
     backupHealthFail=0
     date
     current_date_sec=$(date +"%s")
@@ -305,7 +313,7 @@ etcd_backups_check() {
                     backupHealthFail=1
                 fi
             else
-                echo "$cluster is less than 24 hours old so no recent backups are expected (creationTimestamp: ${age}). (If this is incorrect and cluster is older than stated, there is an error as no backup was found within the last 24 hours) "
+                echo "$cluster is less than 24 hours old so no recent backups are expected (creationTimestamp: ${age})."
             fi
         else
             echo "ERROR: could not get etcd ${cluster}-etcd. Check that cluster is running."
@@ -322,13 +330,14 @@ etcd_backups_check() {
 }
 
 ncn_uptimes() {
+    echo "**************************************************************************"
     echo
     echo "=== NCN node uptimes ==="
     echo "=== NCN Master nodes: ${mNcnNodes}==="
     echo "=== NCN Worker nodes: ${wNcnNodes}==="
     echo "=== NCN Storage nodes: $sNcnNodes ==="
     echo "=== date; for n in $ncnNodes; do echo\
-    "\$n:"; ssh \$n uptime; done ==="
+"\$n:"; ssh \$n uptime; done ==="
     date;
     for n in $ncnNodes
     do
@@ -340,6 +349,7 @@ ncn_uptimes() {
 }
 
 node_resource_consumption() {
+    echo "**************************************************************************"
     echo
     echo "=== NCN master and worker node resource consumption ==="
     echo "=== NCN Master nodes: ${mNcnNodes}==="
@@ -372,6 +382,7 @@ node_resource_consumption() {
 }
 
 no_wipe_status() {
+    echo "**************************************************************************"
     echo
     echo "=== NCN node xnames and metal.no-wipe status ==="
     echo "=== metal.no-wipe=1, expected setting - the client ==="
@@ -439,11 +450,12 @@ no_wipe_status() {
 }
 
 node_pod_counts() {
+    echo "**************************************************************************"
     echo
     echo "=== Worker ncn node pod counts ==="
     echo "=== NCN Worker nodes: ${wNcnNodes} ==="
     echo "=== date; kubectl get pods -A -o wide | grep -v Completed | grep ncn-XXX \
-    | wc -l ==="
+| wc -l ==="
     date;
     for n in $wNcnNodes
     do
@@ -455,6 +467,7 @@ node_pod_counts() {
 }
 
 pods_not_running() {
+    echo "**************************************************************************"
     echo
     echo "=== Pods yet to reach the running state: ==="
     echo "=== kubectl get pods -A -o wide | grep -v \"Completed\|Running\" ==="
@@ -471,7 +484,10 @@ pods_not_running() {
 }
 
 print_end_statement() {
+    echo "**************************************************************************"
+    echo
     echo "NCN Health Check complete. Summary of failures and warnings is printed below."
+    echo
     if [[ $failureMsg == "" ]]; then echo "No failures or warnings to report. All checks passed.";
     else
         echo -e " --- Failures and Warnings--- $failureMsg"
@@ -486,6 +502,7 @@ run_complete_health_check() {
     echo "=== Can be executed on any worker or master ncn node. ==="
     hostName=$(hostname)
     echo "=== Executing on $hostName, $(date) ==="
+    echo
     # run all health checks
     node_status
     ceph_health_status
