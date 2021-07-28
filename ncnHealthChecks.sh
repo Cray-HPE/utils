@@ -301,11 +301,11 @@ etcd_backups_check() {
                 then
                     echo "PASS: backup found less than 24 hours old."
                 else
-                    echo "ERROR: Expected backup because $cluster is over 24 hours old (creationTimestamp is $age). Expected a backup created within the last 24 hours."
+                    echo "ERROR: Expected backup because $cluster is over 24 hours old (creationTimestamp: $age). Expected a backup created within the last 24 hours."
                     backupHealthFail=1
                 fi
             else
-                echo "$cluster creationTimestamp is ${age}. $cluster is less than 24 hours old so no recent backups are expected. (If this is incorrect and cluster is older than stated, there is an error as no backup was found within the last 24 hours) "
+                echo "$cluster is less than 24 hours old so no recent backups are expected (creationTimestamp: ${age}). (If this is incorrect and cluster is older than stated, there is an error as no backup was found within the last 24 hours) "
             fi
         else
             echo "ERROR: could not get etcd ${cluster}-etcd. Check that cluster is running."
