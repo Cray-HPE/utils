@@ -34,15 +34,15 @@ do
     case "${stack}" in
           s) single_test=$OPTARG;;
           h) echo "usage: ncnHealthCheck.sh  # run all ncnHealthChecks"
-   	     echo "ncnHealthCheck.sh -s <health_check_name> # run a specific health check"
-	     echo "(-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
+     	      echo "     ncnHealthCheck.sh -s <health_check_name> # run a specific health check"
+	      echo "     (-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
 ncn_uptimes, node_resource_consumption, no_wipe_status, node_pod_counts, pods_not_running)"
-         exit 1;;
+              exit 1;;
 	  \?) echo "usage: ncnHealthCheck.sh  # run all ncnHealthChecks"
-	      echo " ncnHealthCheck.sh -s <health_check_name> # run a specific health check"
-	      echo  "(-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
+	      echo "     ncnHealthCheck.sh -s <health_check_name> # run a specific health check"
+	      echo "     (-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
 ncn_uptimes, node_resource_consumption, no_wipe_status, node_pod_counts, pods_not_running)"
-                exit 1;;
+              exit 1;;
     esac
 done
 
@@ -520,4 +520,3 @@ run_complete_health_check() {
 
 # run main function
 main
->>>>>>> 7813b2c (CASMPET-4396)
