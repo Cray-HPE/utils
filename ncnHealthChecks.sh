@@ -496,7 +496,6 @@ print_end_statement() {
     echo "Two informative tests were run which checked 'NCN uptimes' and 'worker NCN node pod counts'. These results can be manually checked."
 }
 
-
 run_complete_health_check() {
     echo "             +++++ NCN Health Checks +++++"
     echo "=== Can be executed on any worker or master ncn node. ==="
