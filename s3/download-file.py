@@ -1,4 +1,4 @@
-#! /usr/bin/env python3
+#!/usr/bin/env python3
 #
 # Copyright 2021 Hewlett Packard Enterprise Development LP
 #
@@ -7,6 +7,8 @@ import os
 import sys
 from argparse import ArgumentParser
 import json
+import subprocess
+from base64 import b64decode
 
 import boto3
 import botocore
@@ -14,9 +16,10 @@ from botocore.config import Config
 S3_CONNECT_TIMEOUT=60
 S3_READ_TIMEOUT=1
 
-with open('credentials.json', 'r') as fd:
-    credentials = json.loads(fd.read())
-
+# get credentials
+a_key=b64decode(subprocess.check_output(['kubectl', 'get', 'secret', 'sts-s3-credentials', '-o', "jsonpath='{.data.access_key}'"])).decode()
+s_key=b64decode(subprocess.check_output(['kubectl', 'get', 'secret', 'sts-s3-credentials', '-o', "jsonpath='{.data.secret_key}'"])).decode()
+credentials={ 'endpoint_url': 'http://rgw-vip', 'access_key': a_key, 'secret_key': s_key }
 
 def main():
 
