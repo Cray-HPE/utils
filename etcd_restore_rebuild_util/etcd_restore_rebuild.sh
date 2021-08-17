@@ -7,12 +7,12 @@ do
           s) etcd_to_restore=$OPTARG;;
           m) etcd_to_restore=$OPTARG;;
           a) restore_all=1;;
-          h) echo "usage: etcd-restore.sh -s <single_cluster> # Rebuilds/Restores a single cluster in a namespace"
-	         echo "       etcd-restore.sh -m <oneCluster,twoCluster,n_Cluster> # Rebuilds/Restores multiple clusters in a single namespace"
-	         echo "       etcd-restore.sh -a # Rebuilds/Restores all etcd clusters";;
-	     \?) echo "usage: etcd-restore.sh -s <single_cluster> # Rebuilds/Restores a single cluster in a namespace"
-	         echo "       etcd-restore.sh -m <oneCluster,twoCluster,n_Cluster> # Rebuilds/Restores multiple clusters in a single namespace"
-	         echo "       etcd-restore.sh -a # Rebuilds/Restores all etcd clusters";;
+          h) echo "usage: etcd_restore_rebuild.sh -s <single_cluster> # Rebuilds/Restores a single cluster in a namespace"
+	         echo "       etcd_restore_rebuild.sh -m <oneCluster,twoCluster,n_Cluster> # Rebuilds/Restores multiple clusters in a single namespace"
+	         echo "       etcd_restore_rebuild.sh -a # Rebuilds/Restores all etcd clusters";;
+	     \?) echo "usage: etcd_restore_rebuild.sh -s <single_cluster> # Rebuilds/Restores a single cluster in a namespace"
+	         echo "       etcd_restore_rebuild.sh -m <oneCluster,twoCluster,n_Cluster> # Rebuilds/Restores multiple clusters in a single namespace"
+	         echo "       etcd_restore_rebuild.sh -a # Rebuilds/Restores all etcd clusters";;
     esac
 done
 
@@ -22,6 +22,9 @@ current_date_sec=$(date +"%s")
 one_week_sec=604800
 
 main() {
+    #create /root/etcd directory if it doesn't exist
+    if [[ ! -d /root/etcd ]]; then mkdir /root/etcd; fi
+    
     if [[ $restore_all == 1 ]]
     then
         clusters=$(kubectl get etcdclusters.etcd.database.coreos.com -A -o json | jq '.items[].metadata.name' | sed "s/\"//g")
@@ -52,7 +55,7 @@ main() {
         read ans
         if [[ $ans == 'yes' ]]
         then
-            echo "Proceeding: restoring/rebuilding all etcd clusters."
+            echo "Proceeding: restoring/rebuilding etcd clusters."
             check_for_backups "$clusters"
         else
             echo "Exiting"
