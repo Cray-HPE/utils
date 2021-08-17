@@ -15,6 +15,24 @@
 failureMsg=""
 lagWarning=0
 
+function printErrorLogs() {
+    echo; echo "--- Error Logs for $c_ns \"Leader Pod\" $leader --- "
+        kubectl logs -n $c_ns $leader postgres | awk '{print $line}' \
+            | egrep "ERROR" | egrep -v "NewConnection|bootstrapping|get_cluster|IncompleteRead\(0 bytes read\)" \
+            | sort -u | tail -n 50
+
+    for o in $other
+    do
+        echo; echo "--- Error Logs for $c_ns$podDescribe pod $o --- "
+        kubectl logs -n $c_ns $o postgres | awk '{print $line}' \
+            | egrep "ERROR" | egrep -v "NewConnection|bootstrapping|get_cluster|IncompleteRead\(0 bytes read\)" \
+            | sort -u | tail -n 50
+    done
+
+    echo; echo " * The logs above show up to 50 of the most recent errors * "
+}
+
+
 echo "             +++++ NCN Postgres Health Checks +++++";
 echo "=== Can Be Executed on any ncn worker or master node. ==="
 hostName=$(hostname)
@@ -191,28 +209,8 @@ there is a problem. Look below to see if prometheous alerts for this are firing.
                 echo "--- ERROR --- not all $c_name pods have status 'Running'"
                 failureMsg="${failureMsg}\nERROR: not all $c_name pods have status 'Running'"
 	    fi
-            echo; echo "--- Error Logs for $c_ns \"Leader Pod\" $leader ---"
-            logs=$(kubectl logs -n $c_ns $leader postgres | awk '{$1="";$2="";$100="\\n"; print $line}' \
-| egrep "ERROR" | egrep -v "get_cluster" | egrep -v "IncompleteRead\(0 bytes read\)" | sort -u)
-            echo -e " " $logs
-	    if [[ -z $(kubectl logs -n $c_ns $leader postgres | grep "i am the leader with the lock") ]]; then
-                errorMsg="logs do not verify that the member with the Leader \
-Role ($leader) is the leader with the lock."
-                echo "--- ERROR --- $errorMsg"
-                failureMsg="${failureMsg}\nERROR: $errorMsg"
-            else echo "* Found in logs that 'i am the leader with the lock' *"
-	    fi
-            if [[ ! -z $logs ]]; then failureMsg="${failureMsg}\nERROR: $leader logs show atleast 1 error."; fi
+            if [[ $podsRunningFail -eq 1 || $lagWarning -eq 1 ]]; then printErrorLogs; fi
         fi
-
-        for o in $other
-        do
-            echo; echo "--- Error Logs for $c_ns$podDescribe pod $o ---"
-            logs=$(kubectl logs -n $c_ns $o postgres | awk '{$1="";$2="";$100="\\n"; print $line}' \
-| egrep "ERROR" | egrep -v "get_cluster" | egrep -v "IncompleteRead\(0 bytes read\)" | sort -u)
-            echo -e " " $logs
-            if [[ ! -z $logs ]]; then failureMsg="${failureMsg}\nERROR: $o logs show atleast 1 error."; fi
-        done
         echo;
         echo $dottedLine
         echo $dottedLine
@@ -230,7 +228,7 @@ else echo -e "--- FAILURE --- \n \n- Errors and Warnings are printed below - $fa
 if [[ $lagWarning -eq 1 ]]; then
     # look at prometheous alerts
     echo
-    echo "**** Due to a Lag Warning being detected, Promtheous alerts will checked to see if any Postgres Lag alerts are firing ****"
+    echo "**** Due to Lag being detected, Promtheous alerts will be checked to see if any Postgres Lag alerts are firing ****"
     echo " -- Analysis of output is needed to determine if lag is causing a problem --"
     echo " -- If nothing is printed below the alert title, then the Lag is likely not causing issues --"
     clusterIP=$(kubectl -n sysmgmt-health get svc cray-sysmgmt-health-promet-prometheus -o jsonpath='{.spec.clusterIP}')
