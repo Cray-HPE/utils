@@ -18,14 +18,14 @@ lagWarning=0
 function printErrorLogs() {
     echo; echo "--- Error Logs for $c_ns \"Leader Pod\" $leader --- "
         kubectl logs -n $c_ns $leader postgres | awk '{print $line}' \
-            | egrep "ERROR" | egrep -v "NewConnection|bootstrapping|get_cluster|IncompleteRead\(0 bytes read\)" \
+            | egrep "ERROR" | egrep -v "get_cluster|IncompleteRead\(0 bytes read\)" \
             | sort -u | tail -n 50
 
     for o in $other
     do
         echo; echo "--- Error Logs for $c_ns$podDescribe pod $o --- "
         kubectl logs -n $c_ns $o postgres | awk '{print $line}' \
-            | egrep "ERROR" | egrep -v "NewConnection|bootstrapping|get_cluster|IncompleteRead\(0 bytes read\)" \
+            | egrep "ERROR" | egrep -v "get_cluster|IncompleteRead\(0 bytes read\)" \
             | sort -u | tail -n 50
     done
 
