@@ -23,7 +23,7 @@ one_week_sec=604800
 
 main() {
     #create /root/etcd directory if it doesn't exist
-    if [[ ! -d /root/etcd ]]; then mkdir -p /root/etcd; fi
+    mkdir -p /root/etcd
     
     if [[ $restore_all == 1 ]]
     then
