@@ -433,16 +433,10 @@ no_wipe_status() {
         fi
         noWipe=""
         iter=0
+        # Because we're using bootparameters instead of bootscript, this loop is likely no longer
+        # necessary. However, it also doesn't hurt to have it.
         while [[ -z $noWipe && $iter -lt 5 ]]; do
-            if [[ $ncn_i == "ncn-m001" ]]
-            then
-                macAddress=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?name=${xName}" | grep chain)
-                macAddress=${macAddress#*mac=}
-                macAddress=${macAddress%&arch*}
-                noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?mac=${macAddress}&arch=x86" | grep -o metal.no-wipe=[01])
-            else
-                noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?name=${xName}" | grep -o metal.no-wipe=[01])
-            fi
+            noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootparameters?name=${xName}" | grep -o "metal.no-wipe=[01]")
             if [[ -z $noWipe ]]; then sleep 3; fi
             iter=$(($iter + 1))
         done
