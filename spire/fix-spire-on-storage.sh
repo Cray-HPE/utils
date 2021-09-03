@@ -37,8 +37,8 @@ for node in $nodes; do
         echo "$node is already joined to spire and is healthy."
     else
         if sshnh "$node" ls /root/spire/data/ | grep -q svid.key; then
-		echo "$node was once joined to spire. Cleeaning up old files"
-                sshnh "$node" rm /root/spire/data/svid.key /root/spire/bundle.der /root/spire/agent_svid.der
+            echo "$node was once joined to spire. Cleaning up old files"
+            sshnh "$node" rm /root/spire/data/svid.key /root/spire/bundle.der /root/spire/agent_svid.der
         fi
         echo "$node is being joined to spire."
         XNAME="$(ssh "$node" cat /proc/cmdline | sed 's/.*xname=\([A-Za-z0-9]*\).*/\1/')"
