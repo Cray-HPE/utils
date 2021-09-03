@@ -6,9 +6,9 @@
 
 Name: platform-utils
 Vendor: Hewlett Packard Enterprise Company
-License: HPE Proprietary 
+License: HPE Proprietary
 Summary: Platform utils deployment
-Version: %(cat .version) 
+Version: %(cat .version)
 Release: %(echo ${BUILD_METADATA})
 Source: %{name}-%{version}.tar.bz2
 
@@ -33,6 +33,7 @@ the /opt/cray/platform-utils directory.
 %{utils_dir}/move_pod.sh
 %{utils_dir}/s3/download-file.py
 %{utils_dir}/s3/list-objects.py
+%{utils_dir}/spire/fix-spire-on-storage.sh
 
 %prep
 %setup -q
@@ -42,6 +43,7 @@ the /opt/cray/platform-utils directory.
 %install
 install -m 755 -d %{buildroot}%{utils_dir}/
 install -m 755 -d %{buildroot}%{utils_dir}/s3
+install -m 755 -d %{buildroot}%{utils_dir}/spire
 install -m 755 ncnGetXnames.sh %{buildroot}%{utils_dir}
 install -m 755 ncnHealthChecks.sh %{buildroot}%{utils_dir}
 install -m 755 ncnPostgresHealthChecks.sh %{buildroot}%{utils_dir}
@@ -49,5 +51,4 @@ install -m 755 detect_cpu_throttling.sh %{buildroot}%{utils_dir}
 install -m 755 move_pod.sh %{buildroot}%{utils_dir}
 install -m 755 s3/list-objects.py %{buildroot}%{utils_dir}/s3
 install -m 755 s3/download-file.py %{buildroot}%{utils_dir}/s3
-
-
+install -m 755 spire/fix-spire-on-storage.sh %{buildroot}%{utils_dir}/spire
