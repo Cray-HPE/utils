@@ -13,7 +13,7 @@
 #
 
 failureMsg=""
-lagWarning=0
+lagFlag=0
 
 function printErrorLogs() {
     echo; echo "--- Error Logs for $c_ns \"Leader Pod\" $leader --- "
@@ -170,19 +170,20 @@ leader pod $leader ---"
             kubectl -n $c_ns exec $leader -- patronictl list 2>/dev/null
 
             # verify the state of each cluster member is 'running'
-	    membersRunningFail=0
-	    num_running=$(kubectl -n $c_ns exec $leader -- patronictl list 2>/dev/null | grep running | wc -l)
+	    membersRunningPatroniFail=0
+	    num_running_patronictl=$(kubectl -n $c_ns exec $leader -- patronictl list 2>/dev/null | grep running | wc -l)
 	    if [[ ! -z $(echo $leader | grep 'sma-postgres-cluster') ]]; then
-                if [[ $num_running -ne 2 ]]; then membersRunningFail=1; fi
+                if [[ $num_running_patronictl -ne 2 ]]; then membersRunningPatroniFail=1; fi
             else
-	         if [[ $num_running -ne 3 ]]; then membersRunningFail=1; fi
+	         if [[ $num_running_patronictl -ne 3 ]]; then membersRunningPatroniFail=1; fi
 	    fi
-	    if [[ $membersRunningFail -eq 1 ]]; then
+	    if [[ $membersRunningPatroniFail -eq 1 ]]; then
                 echo "--- ERROR --- state of each $c_name member is not 'running'"
                 failureMsg="${failureMsg}\nERROR: state of each $c_name member is not 'running'"
 	    fi
 
 	    # verify there is no large or growing Lag
+            lagWarning=0
             eval lagValues="$getLagCmd"
 	    for lag in $lagValues; do
 	        if [[ $lag != '|' ]] && [[ $lag == 'unknown' || $lag -gt 0 ]]; then
@@ -190,6 +191,7 @@ leader pod $leader ---"
                     failureMsg="${failureMsg}\nWARNING: $c_name members have Lag. Lag does not always indicate \
 there is a problem. Look below to see if prometheous alerts for this are firing."
                     lagWarning=1
+                    lagFlag=1
 		    break
                 fi
 	    done
@@ -209,7 +211,7 @@ there is a problem. Look below to see if prometheous alerts for this are firing.
                 echo "--- ERROR --- not all $c_name pods have status 'Running'"
                 failureMsg="${failureMsg}\nERROR: not all $c_name pods have status 'Running'"
 	    fi
-            if [[ $podsRunningFail -eq 1 || $lagWarning -eq 1 ]]; then printErrorLogs; fi
+            if [[ $podsRunningFail -eq 1 || $lagWarning -eq 1 || $membersRunningPatroniFail -eq 1 ]]; then printErrorLogs; fi
         fi
         echo;
         echo $dottedLine
@@ -225,7 +227,7 @@ echo
 if [[ -z $failureMsg ]]; then echo "PASSED. All postgresql checks passed."
 else echo -e "--- FAILURE --- \n \n- Errors and Warnings are printed below - $failureMsg"; fi
 
-if [[ $lagWarning -eq 1 ]]; then
+if [[ $lagFlag -eq 1 ]]; then
     # look at prometheous alerts
     echo
     echo "**** Due to Lag being detected, Promtheous alerts will be checked to see if any Postgres Lag alerts are firing ****"
