@@ -26,6 +26,7 @@ the /opt/cray/platform-utils directory.
 %defattr(755, root, root)
 %dir %{utils_dir}
 %dir %{utils_dir}/s3
+%dir %{utils_dir}/etcd_restore_rebuild_util
 %{utils_dir}/ncnGetXnames.sh
 %{utils_dir}/ncnHealthChecks.sh
 %{utils_dir}/ncnPostgresHealthChecks.sh
@@ -35,6 +36,8 @@ the /opt/cray/platform-utils directory.
 %{utils_dir}/s3/download-file.py
 %{utils_dir}/s3/list-objects.py
 %{utils_dir}/spire/fix-spire-on-storage.sh
+%{utils_dir}/etcd_restore_rebuild_util/edit_yaml_for_rebuild.py
+%{utils_dir}/etcd_restore_rebuild_util/etcd_restore_rebuild.sh
 
 %prep
 %setup -q
@@ -45,6 +48,7 @@ the /opt/cray/platform-utils directory.
 install -m 755 -d %{buildroot}%{utils_dir}/
 install -m 755 -d %{buildroot}%{utils_dir}/s3
 install -m 755 -d %{buildroot}%{utils_dir}/spire
+install -m 755 -d %{buildroot}%{utils_dir}/etcd_restore_rebuild_util
 install -m 755 ncnGetXnames.sh %{buildroot}%{utils_dir}
 install -m 755 ncnHealthChecks.sh %{buildroot}%{utils_dir}
 install -m 755 ncnPostgresHealthChecks.sh %{buildroot}%{utils_dir}
@@ -54,3 +58,5 @@ install -m 755 grafterm.sh %{buildroot}%{utils_dir}
 install -m 755 s3/list-objects.py %{buildroot}%{utils_dir}/s3
 install -m 755 s3/download-file.py %{buildroot}%{utils_dir}/s3
 install -m 755 spire/fix-spire-on-storage.sh %{buildroot}%{utils_dir}/spire
+install -m 755 etcd_restore_rebuild_util/edit_yaml_for_rebuild.py %{buildroot}%{utils_dir}/etcd_restore_rebuild_util
+install -m 755 etcd_restore_rebuild_util/etcd_restore_rebuild.sh %{buildroot}%{utils_dir}/etcd_restore_rebuild_util
