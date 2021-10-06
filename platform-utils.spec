@@ -33,6 +33,7 @@ the /opt/cray/platform-utils directory.
 %{utils_dir}/detect_cpu_throttling.sh
 %{utils_dir}/grafterm.sh
 %{utils_dir}/move_pod.sh
+%{utils_dir}/ceph-service-status.sh
 %{utils_dir}/s3/download-file.py
 %{utils_dir}/s3/list-objects.py
 %{utils_dir}/spire/fix-spire-on-storage.sh
@@ -54,6 +55,7 @@ install -m 755 ncnHealthChecks.sh %{buildroot}%{utils_dir}
 install -m 755 ncnPostgresHealthChecks.sh %{buildroot}%{utils_dir}
 install -m 755 detect_cpu_throttling.sh %{buildroot}%{utils_dir}
 install -m 755 move_pod.sh %{buildroot}%{utils_dir}
+install -m 755 ceph-service-status.sh %{buildroot}%{utils_dir}
 install -m 755 grafterm.sh %{buildroot}%{utils_dir}
 install -m 755 s3/list-objects.py %{buildroot}%{utils_dir}/s3
 install -m 755 s3/download-file.py %{buildroot}%{utils_dir}/s3
