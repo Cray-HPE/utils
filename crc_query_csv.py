@@ -54,7 +54,7 @@ csvfilename = sys.argv[3]
 """
 Add service name to services want to check Service Resource Consumption
 """
-services = ['cray-smd', 'cray-bss', 'cray-capmc', 'cray-cps', 'cray-hbtd']
+services = ['cray-smd', 'cray-bss', 'cray-capmc', 'cray-hbtd', 'cray-cps', 'slurm']
 m_metrics = 'sum(container_memory_usage_bytes{pod=~".*.*"})'
 c_metrics = 'sum(rate(container_cpu_usage_seconds_total{pod=~".*.*"}[%s]))' % otime
 r_metrics = 'sum(rate(container_network_receive_bytes_total{pod=~".*.*"}[%s]))' % otime
