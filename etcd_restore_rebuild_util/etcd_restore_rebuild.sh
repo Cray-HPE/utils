@@ -119,6 +119,10 @@ restore() {
     clust_backup=$(echo $1 | sed 's/\// /g') # replace '/' with space
     etcd_cluster=$(echo $1 | cut -d '/' -f 1)'-etcd'
     namespace=$(kubectl get etcdclusters.etcd.database.coreos.com -A -o json | jq --arg name "${etcd_cluster}" '.items[].metadata | select (.name==$name) | .namespace' | sed 's/\"//g')
+    
+    # delete the etcd custom resource if one already exists
+    kubectl -n $namespace delete etcdrestore.etcd.database.coreos.com/${etcd_cluster} 2>/dev/null
+
     #restore from latest backup
     kubectl exec -it -n operators $(kubectl get pod -n operators | grep etcd-backup-restore | head -1 | awk '{print $1}') -c util -- restore_from_backup ${clust_backup}
     if [[ $? != 0 ]]; then echo "Error: not able to restore from backup: ${clust_backup}."; return; fi
@@ -127,7 +131,7 @@ restore() {
     if [[ $pods_started == 'true' ]]
     then
         echo "Successfully restored ${etcd_cluster}"
-        #delete pods
+        # delete the etcd custom resource
         kubectl -n $namespace delete etcdrestore.etcd.database.coreos.com/${etcd_cluster}
     elif [[ $pods_started == 'errorStarting' ]]
     then
@@ -329,10 +333,12 @@ get_latest_backup() {
         then
             most_recent_backup=$backup_instance
             backup_date=$(echo $backup_instance | cut -d '_' -f 3 | sed "s/-/ /3")
-            most_recent_backup_sec=$(date -d "${backup_date}" "+%s")
+            if [[ -z $backup_date ]]; then backup_sec=0;
+            else backup_sec=$(date -d "${backup_date}" "+%s"); fi
         else
             backup_date=$(echo $backup_instance | cut -d '_' -f 3 | sed "s/-/ /3")
-            backup_sec=$(date -d "${backup_date}" "+%s")
+            if [[ -z $backup_date ]]; then backup_sec=0;
+            else backup_sec=$(date -d "${backup_date}" "+%s"); fi
             if [[ $backup_sec -gt $most_recent_backup_sec ]]
             then
                 most_recent_backup=$backup_instance
@@ -354,7 +360,7 @@ check_for_backups() {
             #restore from backup
             if [[ $(( $current_date_sec - $most_recent_backup_sec )) -gt $one_week_sec ]] # check if backup is more than 7 days old
             then
-                echo "You are restoring a backup that is older than 7 days. The backup is ${most_recent_backup}."
+                echo "You are restoring a backup that is older than 7 days. The backup is ${most_recent_backup}"
                 echo "Do you wish to proceed restoring? (yes/no)"
                 read ans_rebuild
                 if [[ $ans_rebuild == 'yes' ]]
