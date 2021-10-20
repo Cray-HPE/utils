@@ -7,7 +7,10 @@ import sys
 import getopt
 import time
 import logging
+from datetime import datetime
 
+#ADD SERVICES BELOW FORMET TO MONITOR
+services = ['cray-smd', 'cray-bss', 'cray-capmc', 'cray-hbtd', 'cray-cps', 'slurm']
 PROMETHEUS_URL = ''
 CONTAINER = ''
 QUERY_API = '/api/v1/query'
@@ -22,8 +25,8 @@ def main():
     handle_args(sys.argv[1:])
 
     metricnames, metricnames_desc = query_metric_names()
-    print(metricnames)
-    print(metricnames_desc)
+    #print(metricnames)
+    #print(metricnames_desc)
     logging.info("Querying metric names succeeded, metric number: %s", len(metricnames))
 
     csvset = query_metric_values(metricnames=metricnames)
@@ -95,7 +98,8 @@ def metric_query(metrics,index,service):
 def query_metric_names():
     metricnames = list()
     metricnames_desc = list()
-    services = ['cray-smd', 'cray-bss', 'cray-capmc', 'cray-hbtd', 'cray-cps', 'slurm']
+    #services = ['cray-smd']
+    #services = ['cray-smd', 'cray-bss', 'cray-capmc', 'cray-hbtd', 'cray-cps', 'slurm']
     #MEMORY METRICS
     m_metrics = 'sum(container_memory_working_set_bytes{pod=~".*.*"})'
     mreq_metrics = 'sum(kube_pod_container_resource_requests_memory_bytes{pod=~".*.*"})'
@@ -328,7 +332,6 @@ def query_metric_values(metricnames):
         start_time = START
 
     metric = metricnames[0]
-    print(metric)
     response = requests.get(PROMETHEUS_URL + RANGE_QUERY_API, params={'query': '{0}'.format(metric), 'start': start_time, 'end': end_time, 'step': RESOLUTION})
     status = response.json()['status']
 
@@ -337,7 +340,6 @@ def query_metric_values(metricnames):
         sys.exit(2)
 
     results = response.json()['data']['result']
-
     if len(results) == 0:
         logging.error(response.json())
         sys.exit(2)
@@ -358,7 +360,8 @@ def write2csv(filename, metricnames, dataset):
         writer = csv.writer(file)
         writer.writerow(['timestamp'] + metricnames)
         for timestamp in sorted(dataset.keys(), reverse=True):
-            writer.writerow([timestamp] + dataset[timestamp])
+            unix_val = datetime.fromtimestamp(timestamp)
+            writer.writerow([unix_val] + dataset[timestamp])
         # for line in dataset:
         #     writer.writerow([line] + dataset[line])
 
