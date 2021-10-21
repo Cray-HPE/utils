@@ -24,15 +24,6 @@ datasource
 ### Usage:
 ```
 
-ncn-m001:~ #python crc_query_csv.py
-ERROR:root:You should use -h or --host to specify your prometheus server's url, e.g. http://prometheus:9090
-
-Metrics2CSV Help Info
-    metrics2csv.py -h <prometheus_url> -c <container_name> [-o <outputfile>]
-or: metrics2csv.py --host=<prometheus_url> --container=<container_name> [--outfile=<outputfile>]
----
-Additional options: --start=<start_timestamp_or_rfc3339> --end=<end_timestamp_or_rfc3339> --period=<get_for_most_recent_period(int miniutes)>
-                    use start&end or only use period
 ncn-m001:~/ram/18oct/working # python crc_istio_prom_csv.py
 ERROR:root:You should use -h or --host to specify your prometheus server's url, e.g. http://prometheus:9090
 
@@ -82,8 +73,12 @@ The resulted csv file will have below metrics:
     total transmit packets dropped
 	
 
+   
+
+
 ### Usage
 ```
+
 ncn-m001:~ #ppython crc_query_csv.py
 ERROR:root:You should use -h or --host to specify your prometheus server's url, e.g. http://prometheus:9090
 
@@ -124,7 +119,7 @@ The resulted csv file will have below metrics:
 ### Usage
 ```
 
-ncn-m001:~ #ppython ncn_query_csv.py
+ncn-m001:~ #python ncn_query_csv.py
 ERROR:root:You should use -h or --host to specify your prometheus server's url, e.g. http://prometheus:9090
 
 Metrics2CSV Help Info
