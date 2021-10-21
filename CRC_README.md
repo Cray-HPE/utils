@@ -43,11 +43,11 @@ Below example command(with parameterized start and stop time) will generate isti
 python crc_istio_prom_csv.py -h http://10.35.128.193:9090 -o istio.csv -s 10s --start=2021-10-18T02:10:30.781Z --end=2021-10-18T04:11:00.781Z
 INFO:root:Querying metric names succeeded, metric number: 42
 INFO:root:Querying metric values succeeded, rows of data: 361
-
+```
 
 ## crc_query_csv.py 
 
-
+```
 In this script we are collecting memory usage, CPU usage, and network bandwidth etc., from 
 sysmgmt-health prometheus datasource and exporting them into a csv file.
 
@@ -98,7 +98,7 @@ Below example command(with parameterized start and stop time) will generate shs.
 python crc_query_csv.py -h http://10.35.128.140:9090  -o shs.csv -s 10s --start=2021-10-18T02:10:30.781Z --end=2021-10-18T04:11:00.781Z
 INFO:root:Querying metric names succeeded, metric number: 114
 INFO:root:Querying metric values succeeded, rows of data: 361
-
+```
 ## ncn_query_csv.py
 
 
@@ -137,4 +137,4 @@ Below example command(with parameterized start and stop time) will generate ncn.
 python ncn_query_csv.py  -h http://10.35.128.140:9090  -o ncn.csv -s 10s --start=2021-10-18T02:10:30.781Z --end=2021-10-18T04:11:00.781Z
 INFO:root:Querying metric names succeeded, metric number: 49
 INFO:root:Querying metric values succeeded, rows of data: 361
-
+```
