@@ -81,9 +81,10 @@ The resulted csv file will have below metrics:
     total receive packets dropped
     total transmit packets dropped
 	
+
 ### Usage
 ```
-python crc_query_csv.py
+ncn-m001:~ #ppython crc_query_csv.py
 ERROR:root:You should use -h or --host to specify your prometheus server's url, e.g. http://prometheus:9090
 
 Metrics2CSV Help Info
@@ -122,7 +123,8 @@ The resulted csv file will have below metrics:
 
 ### Usage
 ```
- python ncn_query_csv.py
+
+ncn-m001:~ #ppython ncn_query_csv.py
 ERROR:root:You should use -h or --host to specify your prometheus server's url, e.g. http://prometheus:9090
 
 Metrics2CSV Help Info
