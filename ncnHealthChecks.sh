@@ -9,7 +9,7 @@
 #    Report the number of pods on which worker node for each Etcd cluster
 #    Report any "alarms" set for any of the Etcd clusters
 #    Report health of Etcd cluster's database
-#    List automated Etcd backups for BOS, BSS, CRUS, DNS and FAS
+#    List automated Etcd backups for BOS, BSS, CRUS, and FAS
 #    Report ncn node uptimes
 #    Report NCN master and worker node resource consumption
 #    Report NCN node xnames and metal.no-wipe status
@@ -282,7 +282,7 @@ etcd_backups_check() {
     echo
     echo "=== List automated etcd backups on system. ==="
     echo "=== Etcd Clusters with Automatic Etcd Back-ups Configured: ==="
-    echo "=== BOS, BSS, CRUS, DNS and FAS ==="
+    echo "=== BOS, BSS, CRUS, and FAS ==="
     echo "=== May want to ensure that automated back-ups are up to-date ==="
     echo "=== and that automated back-ups continue after NCN worker reboot. ==="
     echo "=== Clusters without Automated Backups: ==="
@@ -295,7 +295,7 @@ list_backups <cluster> ; ==="
     date
     current_date_sec=$(date +"%s")
     one_day_sec=86400
-    for cluster in cray-bos cray-bss cray-crus cray-externaldns cray-fas
+    for cluster in cray-bos cray-bss cray-crus cray-fas
     do
         echo; echo "-- $cluster -- backups"
         backup_within_day=0
