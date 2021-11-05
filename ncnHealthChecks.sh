@@ -75,10 +75,10 @@ main() {
         then get_nodes; fi
         $single_test
         if [[ $? -ne 0 ]]
-        then 
+        then
             echo "(-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
 ncn_uptimes, node_resource_consumption, no_wipe_status, node_pod_counts, pods_not_running)"
-            exit 2; 
+            exit 2;
         fi
     else
         get_nodes
@@ -99,15 +99,24 @@ get_nodes() {
     wNcnNodes=$(kubectl get node --selector='!node-role.kubernetes.io/master' \
                         --no-headers=true | awk '{print $1}' | tr "\n", " ")
 
-    # Get first master node - should not be the PIT node:
-    firstMaster=$(echo $mNcnNodes | awk '{print $1}')
+    # Get reachable master node
+    goodMaster=""
+    for master in $mNcnNodes; do
+      if ping -c 1 -n -w 1 $master &> /dev/null; then
+        goodMaster=$master
+        break
+      fi
+    done
+
+    if [ -z "$goodMaster" ]; then
+      echo " --- FAILED --- Unable to reach any master node.";
+      failureMsg="${failureMsg}\nFAIL: Unable to reach any master node."
+      exit_code=1
+    fi
 
     # Get storage nodes:
-    sNcnNodes=$(ssh $sshOptions $firstMaster ceph node ls osd | \
+    sNcnNodes=$(ssh $sshOptions $goodMaster ceph node ls osd | \
                     jq -r 'keys | join(" ")')
-
-    # Get first storage node:
-    firstStorage=$(echo $sNcnNodes | awk '{print $1}')
 
     ncnNodes=${mNcnNodes}${wNcnNodes}$sNcnNodes
     echo "=== NCN Master nodes: ${mNcnNodes}==="
@@ -125,7 +134,7 @@ node_status() {
     kubectl get nodes -o wide
     notReady=$(kubectl get nodes -o json | jq '.items[].status.conditions[] | select (.type=="Ready") | select(.status!="True")')
     if [[ ! -z $notReady ]]
-    then 
+    then
         echo " --- FAILED --- not all nodes are \"Ready\" ";
         failureMsg="${failureMsg}\nFAIL: not all nodes are \"Ready\"."
         exit_code=1
@@ -138,19 +147,25 @@ ceph_health_status() {
     echo
     echo "=== Check Ceph Health Status. ==="
     echo "=== Verify \"health: HEALTH_OK\" Status. ==="
-    echo "=== At times a status of HEALTH_WARN, too few PGs per OSD, and/or large \
-omap objects, may be okay. ==="
-    echo "=== date; ssh $firstStorage ceph -s; ==="
-    date
-    ssh $sshOptions $firstStorage ceph -s
-    health_ok=$(ssh $sshOptions $firstStorage ceph -s | grep 'health: HEALTH_OK')
-    if [[ -z $health_ok ]]
-    then
-        echo " --- FAILED --- Ceph's health status is not \"HEALTH_OK\".";
-        failureMsg="${failureMsg}\nFAIL: Ceph's health status is not \"HEALTH_OK\"."
-        exit_code=1
-    else echo " --- PASSED --- "; fi
-    echo
+    if [ -z "$goodMaster" ]; then
+      echo " --- FAILED --- Unable to get Ceph's health status without reachable master node.";
+      failureMsg="${failureMsg}\nUnable to get Ceph's health status without reachable master node."
+      exit_code=1
+    else
+      echo "=== At times a status of HEALTH_WARN, too few PGs per OSD, and/or large \
+  omap objects, may be okay. ==="
+      echo "=== date; ssh $goodMaster ceph -s; ==="
+      date
+      ssh $sshOptions $goodMaster ceph -s
+      health_ok=$(ssh $sshOptions $goodMaster ceph -s | grep 'health: HEALTH_OK')
+      if [[ -z $health_ok ]]; then
+          echo " --- FAILED --- Ceph's health status is not \"HEALTH_OK\".";
+          failureMsg="${failureMsg}\nFAIL: Ceph's health status is not \"HEALTH_OK\"."
+          exit_code=1
+      else
+          echo " --- PASSED --- "; fi
+      echo
+    fi
 }
 
 etcd_health_status() {
@@ -205,7 +220,7 @@ etcd_cluster_balance() {
         done
     done
     if [[ $etcdPodHealthFail -eq 1 ]]
-    then 
+    then
         echo " --- FAILED --- the incorrect number of pods is running in an etcd cluster.";
         failureMsg="${failureMsg}\nFAIL: the incorrect number of pods is running in an etcd cluster."
     elif [[ $etcdPodHealthFail -eq 2 ]]
@@ -290,7 +305,7 @@ etcd_backups_check() {
     echo "=== Automatic backups generated after cluster has been running 24 hours. ==="
     echo "=== date; kubectl exec -it -n operators \$(kubectl get pod -n operators \
 | grep etcd-backup-restore | head -1 | awk '{print \$1}') -c boto3 -- \
-list_backups <cluster> ; ===" 
+list_backups <cluster> ; ==="
     backupHealthFail=0
     date
     current_date_sec=$(date +"%s")
