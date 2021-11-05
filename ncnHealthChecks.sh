@@ -106,9 +106,6 @@ get_nodes() {
     sNcnNodes=$(ssh $sshOptions $firstMaster ceph node ls osd | \
                     jq -r 'keys | join(" ")')
 
-    # Get first storage node:
-    firstStorage=$(echo $sNcnNodes | awk '{print $1}')
-
     ncnNodes=${mNcnNodes}${wNcnNodes}$sNcnNodes
     echo "=== NCN Master nodes: ${mNcnNodes}==="
     echo "=== NCN Worker nodes: ${wNcnNodes}==="
@@ -140,10 +137,10 @@ ceph_health_status() {
     echo "=== Verify \"health: HEALTH_OK\" Status. ==="
     echo "=== At times a status of HEALTH_WARN, too few PGs per OSD, and/or large \
 omap objects, may be okay. ==="
-    echo "=== date; ssh $firstStorage ceph -s; ==="
+    echo "=== date; ssh $firstMaster ceph -s; ==="
     date
-    ssh $sshOptions $firstStorage ceph -s
-    health_ok=$(ssh $sshOptions $firstStorage ceph -s | grep 'health: HEALTH_OK')
+    ssh $sshOptions $firstMaster ceph -s
+    health_ok=$(ssh $sshOptions $firstMaster ceph -s | grep 'health: HEALTH_OK')
     if [[ -z $health_ok ]]
     then
         echo " --- FAILED --- Ceph's health status is not \"HEALTH_OK\".";
