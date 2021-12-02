@@ -131,8 +131,6 @@ restore() {
     if [[ $pods_started == 'true' ]]
     then
         echo "Successfully restored ${etcd_cluster}"
-        # delete the etcd custom resource
-        kubectl -n $namespace delete etcdrestore.etcd.database.coreos.com/${etcd_cluster}
     elif [[ $pods_started == 'errorStarting' ]]
     then
         echo "Error: Attempted to restore ${etcd_cluster} but not all pods are 'ready'."
@@ -333,8 +331,8 @@ get_latest_backup() {
         then
             most_recent_backup=$backup_instance
             backup_date=$(echo $backup_instance | cut -d '_' -f 3 | sed "s/-/ /3")
-            if [[ -z $backup_date ]]; then backup_sec=0;
-            else backup_sec=$(date -d "${backup_date}" "+%s"); fi
+            if [[ -z $backup_date ]]; then most_recent_backup_sec=0;
+            else most_recent_backup_sec=$(date -d "${backup_date}" "+%s"); fi
         else
             backup_date=$(echo $backup_instance | cut -d '_' -f 3 | sed "s/-/ /3")
             if [[ -z $backup_date ]]; then backup_sec=0;
