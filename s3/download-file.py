@@ -16,10 +16,6 @@ from botocore.config import Config
 S3_CONNECT_TIMEOUT=60
 S3_READ_TIMEOUT=1
 
-# get credentials
-a_key=b64decode(subprocess.check_output(['kubectl', 'get', 'secret', 'sts-s3-credentials', '-o', "jsonpath='{.data.access_key}'"])).decode()
-s_key=b64decode(subprocess.check_output(['kubectl', 'get', 'secret', 'sts-s3-credentials', '-o', "jsonpath='{.data.secret_key}'"])).decode()
-credentials={ 'endpoint_url': 'http://rgw-vip', 'access_key': a_key, 'secret_key': s_key }
 
 def main():
 
@@ -44,6 +40,19 @@ def main():
     s3_config = Config(connect_timeout=S3_CONNECT_TIMEOUT,
                            read_timeout=S3_READ_TIMEOUT)
 
+    #
+    # These bucket names have K8S secrets with non-standard names
+    #
+    non_std_bucket_map = {'ssm': 'ssm-swm-s3-credentials', 'boot-images': 'ims-s3-credentials', 'install-artifacts': 'artifacts-s3-credentials'}
+    if args.bucket_name in non_std_bucket_map:
+        secret_name=non_std_bucket_map[args.bucket_name]
+    else:
+        secret_name="%s-%s" % (args.bucket_name, "s3-credentials")
+
+    # get credentials
+    a_key=b64decode(subprocess.check_output(['kubectl', 'get', 'secret', secret_name, '-o', "jsonpath='{.data.access_key}'"])).decode()
+    s_key=b64decode(subprocess.check_output(['kubectl', 'get', 'secret', secret_name, '-o', "jsonpath='{.data.secret_key}'"])).decode()
+    credentials={ 'endpoint_url': 'http://rgw-vip', 'access_key': a_key, 'secret_key': s_key }
     s3 = boto3.resource('s3',
                         endpoint_url=credentials['endpoint_url'],
                         aws_access_key_id=credentials['access_key'],
