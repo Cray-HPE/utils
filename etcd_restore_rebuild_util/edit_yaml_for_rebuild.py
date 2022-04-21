@@ -12,7 +12,6 @@ with open(file_name) as f:
     del  y['metadata']['creationTimestamp']
     del  y['metadata']['generation']
     del  y['metadata']['resourceVersion']
-    del  y['metadata']['selfLink']
     del  y['metadata']['uid']
     del  y['status']
 

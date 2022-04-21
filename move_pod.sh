@@ -5,6 +5,8 @@ target_node=$2
 
 if [ "$pod_name" == "" ] ||  [ "$target_node" == "" ]; then
   echo "Usage: $0 <pod_name> <target_node>"
+  echo
+  exit 1
 fi
 
 ns=$(kubectl get po -A | grep $pod_name | awk '{print $1}')

@@ -531,6 +531,13 @@ run_complete_health_check() {
     echo "=== Can be executed on any worker or master ncn node. ==="
     hostName=$(hostname)
     echo "=== Executing on $hostName, $(date) ==="
+    csmVersion=$(kubectl -n services get cm cray-product-catalog \
+                         -o jsonpath='{.data.csm}' 2>/dev/null | \
+                         yq r -j - 2>/dev/null | \
+                         jq -r 'keys[]' 2>/dev/null | \
+                         sed '/-/!{s/$/_/}' | sort -V | sed 's/_$//')
+    echo "=== CSM version:"
+    echo "$csmVersion"
     echo
     # run all health checks
     node_status

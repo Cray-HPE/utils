@@ -11,7 +11,7 @@ function usage()
   cat << EO
    Usage: $PROGNAME [flags]
 
-   Example: grafterm -c critical_services_dashboard.json -r 5s -d 2h
+   Example: $PROGNAME -c critical_services_dashboard.json -r 5s -d 2h
 
    Flags:
 EO
