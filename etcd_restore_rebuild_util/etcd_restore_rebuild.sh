@@ -276,7 +276,7 @@ rebuild() {
         fi
 
         # delete existing etcd backup
-        backup_name=$(kubectl get etcdbackup -n $namespace | grep "${cluster}.*periodic")
+        backup_name=$(kubectl get etcdbackup -n $namespace | awk 'NF > 1  && $1 + /^'$cluster'-etcd-cluster-periodic/ {print $1}')
         if [[ ! -z $backup_name ]]
         then
             kubectl delete etcdbackup -n services $backup_name
