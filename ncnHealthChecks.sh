@@ -200,6 +200,7 @@ etcd_cluster_balance() {
     echo "=== Ensure that no two pods in a given cluster exist on the same worker node. ==="
     etcdPodHealthFail=0
     date
+    #shellcheck disable=SC2043
     for ns in services
     do
         for cluster in $(kubectl get etcdclusters.etcd.database.coreos.com \
@@ -314,6 +315,7 @@ list_backups <cluster> ; ==="
     do
         echo; echo "-- $cluster -- backups"
         backup_within_day=0
+        #shellcheck disable=SC2046
         backups=$(kubectl exec -it -n operators $(kubectl get pod -n operators | \
             grep etcd-backup-restore | head -1 | awk '{print $1}') -c boto3 -- list_backups ${cluster})
         if [[ "$backups" != *"KeyError: 'Contents'"* ]] && [[ ! -z $backups ]] # check if any backups exist
@@ -373,6 +375,7 @@ ncn_uptimes() {
     echo "=== NCN Master nodes: ${mNcnNodes}==="
     echo "=== NCN Worker nodes: ${wNcnNodes}==="
     echo "=== NCN Storage nodes: $sNcnNodes ==="
+    #shellcheck disable=SC2140
     echo "=== date; for n in $ncnNodes; do echo\
 "\$n:"; ssh \$n uptime; done ==="
     date;
@@ -430,6 +433,7 @@ no_wipe_status() {
     echo "=== NCN Worker nodes: ${wNcnNodes}==="
     echo "=== NCN Storage nodes: $sNcnNodes ==="
     noWipeFail=0
+    #shellcheck disable=SC2155
     export TOKEN=$(get_token)
     if [[ -z $TOKEN ]]
     then

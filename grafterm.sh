@@ -61,12 +61,14 @@ while true ; do
     --version )
       grafterm_pod=$(get_grafterm_pod_name)
       if [ "x$grafterm_pod" == "x" ]; then echo "Error: grafterm pod is not running"; exit 1; fi
+      #shellcheck disable=SC2046
       echo $(kubectl exec --stdin --tty -n sysmgmt-health $grafterm_pod -- grafterm --version)
       exit 1
       ;;
     --list )
       grafterm_pod=$(get_grafterm_pod_name)
       if [ "x$grafterm_pod" == "x" ]; then echo "Error: grafterm pod is not running"; exit 1; fi
+      #shellcheck disable=SC2046
       echo $(kubectl exec --stdin --tty -n sysmgmt-health $grafterm_pod -- ls /grafterm)
       exit 1
       ;;

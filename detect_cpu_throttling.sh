@@ -8,11 +8,13 @@
 str=$1
 : ${str:=.}
 
+#shellcheck disable=SC3011
 while read ns pod node; do
   echo ""
   echo "Checking $pod"
   while read -r container; do
     uid=$(echo $container | awk 'BEGIN { FS = "/" } ; {print $NF}')
+    #shellcheck disable=SC2087
     ssh -T ${node} <<-EOF
         dir=\$(find /sys/fs/cgroup/cpu,cpuacct/kubepods/burstable -name \*${uid}\* 2>/dev/null)
         [ "\${dir}" = "" ] && { dir=\$(find /sys/fs/cgroup/cpu,cpuacct/system.slice/containerd.service -name \*${uid}\* 2>/dev/null); }
@@ -25,5 +27,6 @@ while read ns pod node; do
           fi
         fi
 	EOF
+
   done <<< "`kubectl -n $ns get pod $pod -o yaml | grep ' - containerID'`"
 done <<<"$(kubectl get pods -A -o wide | grep $str | grep Running | awk '{print $1 " " $2 " " $8}')"

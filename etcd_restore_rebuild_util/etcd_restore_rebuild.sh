@@ -124,6 +124,7 @@ restore() {
     kubectl -n $namespace delete etcdrestore.etcd.database.coreos.com/${etcd_cluster} 2>/dev/null
 
     #restore from latest backup
+    #shellcheck disable=SC2046
     kubectl exec -it -n operators $(kubectl get pod -n operators | grep etcd-backup-restore | head -1 | awk '{print $1}') -c util -- restore_from_backup ${clust_backup}
     if [[ $? != 0 ]]; then echo "Error: not able to restore from backup: ${clust_backup}."; return; fi
     #wait for pods to come up
@@ -351,6 +352,7 @@ check_for_backups() {
 
     for etcd_cluster in $1
     do
+        #shellcheck disable=SC2046
         backups=$(kubectl exec -it -n operators $(kubectl get pod -n operators | grep etcd-backup-restore | head -1 | awk '{print $1}') -c boto3 -- list_backups ${etcd_cluster%-etcd} 2> /dev/null)
         if [[ "$backups" != *"KeyError: 'Contents'"* ]] && [[ ! -z $backups ]] # check if any backups exist
         then

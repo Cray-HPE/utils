@@ -134,6 +134,7 @@ the $c_name postgres clusters in the $c_ns namespace."
 
 	# Find the leader:
         podDescribe=" non-leader"
+        #shellcheck disable=SC2034
         for m in $members
         do
             eval leader="$patronictlCmd"
@@ -185,6 +186,7 @@ leader pod $leader ---"
 	    # verify there is no large or growing Lag
             lagWarning=0
             eval lagValues="$getLagCmd"
+      #shellcheck disable=SC2154
 	    for lag in $lagValues; do
 	        if [[ $lag != '|' ]] && [[ $lag == 'unknown' || $lag -gt 0 ]]; then
 	            echo "--- WARNING --- $c_name members have Lag"; echo
