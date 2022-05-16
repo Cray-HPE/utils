@@ -1,6 +1,27 @@
 #!/bin/bash
-# Copyright 2021 Hewlett Packard Enterprise Development LP
-
+#
+# MIT License
+#
+# (C) Copyright 2021-2022 Hewlett Packard Enterprise Development LP
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
+#
 # Default values
 verbose=false
 
@@ -28,6 +49,7 @@ do
 done
 
 function check_service(){
+  #shellcheck disable=SC2034
   (( counter=0 ))
   if [[ $service =~ "osd" ]]
     then
@@ -85,6 +107,7 @@ function check_service(){
       then
         read -r -d "\n" service_unit status epoch < <(pdsh -N -w "$host" podman ps --format json 2>&1 |grep -v "Permanently added"|jq --arg osd "osd.$osd_id" -r '.[]|select(.Names[]|contains($osd))|.Names[], .State, .StartedAt')
         (( tests++ ))
+        #shellcheck disable=SC2076
         if [[ "$service_unit" =~ "$FSID_STR-osd.$osd_id" ]]
         then
           (( passed++ ))
@@ -92,6 +115,7 @@ function check_service(){
       else
         read -r -d "\n" service_unit status epoch < <(pdsh -N -w "$host" podman ps --format json 2>&1|grep -v "Permanently added"|jq --arg service "$service" -r '.[]|select(.Names[]|contains($service))|.Names[], .State, .StartedAt')
         (( tests++ ))
+        #shellcheck disable=SC2076
         if [[ "$service_unit" =~ "$FSID_STR-$service" ]]
         then
           (( passed++ ))
@@ -111,6 +135,7 @@ function check_service(){
        mds_id=$(echo "$mds"|cut -d '.' -f2,3,4)
        started_time=$(ceph orch ps --daemon_type mds --hostname "$host" -f json-pretty |jq --arg mds_id "$mds_id" -r '.[]|select(.daemon_id==$mds_id)|.started')
        started_epoch=$(date -d "$started_time" +%s)
+       #shellcheck disable=SC2034
        target_service=$(ceph orch ps --daemon_type mds --hostname "$host" -f json-pretty |jq --arg mds_id "$mds_id" -r '.[]|select(.daemon_id==$mds_id)|.daemon_id')
        current_epoch=$(date +%s)
        diff=$((current_epoch-started_epoch))
@@ -135,6 +160,7 @@ function check_service(){
        fi
        read -r -d "\n" service_unit status epoch < <(pdsh -N -w "$host" podman ps --format json 2>&1|grep -v "Permanently added"|jq --arg service "$service" -r '.[]|select(.Names[]|contains($service))|.Names[], .State, .StartedAt')
        (( tests++ ))
+       #shellcheck disable=SC2076
        if [[ "$service_unit" =~ "$FSID_STR-$mds" ]]
        then
          (( passed++ ))
@@ -156,8 +182,10 @@ function check_service(){
         echo "Service $service on $node has been restarted and up for $diff seconds"
         echo "$service's status is: $(ceph orch ps --daemon_type mds --hostname "$host" -f json-pretty|jq -r '.[].status_desc')"
       fi
+      #shellcheck disable=SC2034
       read -r -d "\n" service_unit status epoch < <(pdsh -N -w "$host" podman ps --format json 2>&1|grep -v "Permanently added"|jq --arg service "$service_name" -r '.[]|select(.Names[]|contains($service))|.Names[], .State, .StartedAt')
       (( tests++ ))
+      #shellcheck disable=SC2076
       if [[ "$service_unit" =~ "$FSID_STR-$service_name" ]]
       then
         (( passed++ ))

@@ -1,6 +1,26 @@
 #!/bin/bash
-
-# Copyright 2020-2021 Hewlett Packard Enterprise Development LP
+#
+# MIT License
+#
+# (C) Copyright 2020-2022 Hewlett Packard Enterprise Development LP
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
 #
 # The ncnHealthChecks script executes a number of NCN system health checks:
 #    Report Kubernetes status for Master and worker nodes
@@ -200,6 +220,7 @@ etcd_cluster_balance() {
     echo "=== Ensure that no two pods in a given cluster exist on the same worker node. ==="
     etcdPodHealthFail=0
     date
+    #shellcheck disable=SC2043
     for ns in services
     do
         for cluster in $(kubectl get etcdclusters.etcd.database.coreos.com \
@@ -314,6 +335,7 @@ list_backups <cluster> ; ==="
     do
         echo; echo "-- $cluster -- backups"
         backup_within_day=0
+        #shellcheck disable=SC2046
         backups=$(kubectl exec -it -n operators $(kubectl get pod -n operators | \
             grep etcd-backup-restore | head -1 | awk '{print $1}') -c boto3 -- list_backups ${cluster})
         if [[ "$backups" != *"KeyError: 'Contents'"* ]] && [[ ! -z $backups ]] # check if any backups exist
@@ -373,6 +395,7 @@ ncn_uptimes() {
     echo "=== NCN Master nodes: ${mNcnNodes}==="
     echo "=== NCN Worker nodes: ${wNcnNodes}==="
     echo "=== NCN Storage nodes: $sNcnNodes ==="
+    #shellcheck disable=SC2140
     echo "=== date; for n in $ncnNodes; do echo\
 "\$n:"; ssh \$n uptime; done ==="
     date;
@@ -430,6 +453,7 @@ no_wipe_status() {
     echo "=== NCN Worker nodes: ${wNcnNodes}==="
     echo "=== NCN Storage nodes: $sNcnNodes ==="
     noWipeFail=0
+    #shellcheck disable=SC2155
     export TOKEN=$(get_token)
     if [[ -z $TOKEN ]]
     then

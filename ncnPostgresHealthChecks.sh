@@ -1,6 +1,26 @@
 #!/bin/bash
-
-# Copyright 2020-2021 Hewlett Packard Enterprise Development LP
+#
+# MIT License
+#
+# (C) Copyright 2020-2022 Hewlett Packard Enterprise Development LP
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
 #
 # For each postgres cluster, the ncnPostgresHealthChecks script determines
 # the leader pod and reports the status of all postgres pods in the cluster.
@@ -134,6 +154,7 @@ the $c_name postgres clusters in the $c_ns namespace."
 
 	# Find the leader:
         podDescribe=" non-leader"
+        #shellcheck disable=SC2034
         for m in $members
         do
             eval leader="$patronictlCmd"
@@ -185,6 +206,7 @@ leader pod $leader ---"
 	    # verify there is no large or growing Lag
             lagWarning=0
             eval lagValues="$getLagCmd"
+      #shellcheck disable=SC2154
 	    for lag in $lagValues; do
 	        if [[ $lag != '|' ]] && [[ $lag == 'unknown' || $lag -gt 0 ]]; then
 	            echo "--- WARNING --- $c_name members have Lag"; echo
