@@ -33,19 +33,19 @@ fi
 nodes=$(ceph node ls | jq -r '.[] | keys[]' | sort -u)
 
 for node in $nodes; do
-    if sshnh "$node" spire-agent healthcheck -socketPath=/root/spire/agent.sock 2>&1 | grep -q "healthy"; then
+    if sshnh "$node" spire-agent healthcheck -socketPath=/var/lib/spire/agent.sock 2>&1 | grep -q "healthy"; then
         echo "$node is already joined to spire and is healthy."
     else
-        if sshnh "$node" ls /root/spire/data/ | grep -q svid.key; then
+        if sshnh "$node" ls /var/lib/spire/data/ | grep -q svid.key; then
             echo "$node was once joined to spire. Cleaning up old files"
-            sshnh "$node" rm /root/spire/data/svid.key /root/spire/bundle.der /root/spire/agent_svid.der
+            sshnh "$node" rm /var/lib/spire/data/svid.key /var/lib/spire/bundle.der /var/lib/spire/agent_svid.der
         fi
         echo "$node is being joined to spire."
         XNAME="$(ssh "$node" cat /proc/cmdline | sed 's/.*xname=\([A-Za-z0-9]*\).*/\1/')"
         TOKEN="$(kubectl exec -n spire "$POD" --container spire-registration-server -- curl -k -X POST -d type=storage\&xname="$XNAME" "$URL" | tr ':' '=' | tr -d '"{}')"
-        sshnh "$node" "echo $TOKEN > /root/spire/conf/join_token"
-        kubectl get configmap -n spire spire-ncn-config -o jsonpath='{.data.spire-agent\.conf}' | sed "s/server_address.*/server_address = \"$LOADBALANCERIP\"/" | sshnh "$node" "cat > /root/spire/conf/spire-agent.conf"
-        kubectl get configmap -n spire spire-bundle -o jsonpath='{.data.bundle\.crt}' | sshnh "$node" "cat > /root/spire/conf/bundle.crt"
+        sshnh "$node" "echo $TOKEN > /var/lib/spire/conf/join_token"
+        kubectl get configmap -n spire spire-ncn-config -o jsonpath='{.data.spire-agent\.conf}' | sed "s/server_address.*/server_address = \"$LOADBALANCERIP\"/" | sshnh "$node" "cat > /var/lib/spire/conf/spire-agent.conf"
+        kubectl get configmap -n spire spire-bundle -o jsonpath='{.data.bundle\.crt}' | sshnh "$node" "cat > /var/lib/spire/conf/bundle.crt"
         sshnh "$node" systemctl enable spire-agent
         sshnh "$node" systemctl start spire-agent
     fi
