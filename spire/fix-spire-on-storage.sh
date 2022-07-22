@@ -44,7 +44,7 @@ POD=$(kubectl get pods -n spire | grep spire-server | grep Running | awk 'NR==1{
 LOADBALANCERIP=$(kubectl get service -n spire spire-lb --no-headers --output=jsonpath='{.spec.loadBalancerIP}')
 
 function sshnh() {
-	/usr/bin/ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" "$@"
+	/usr/bin/ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$@"
 }
 
 if hostname | grep -q 'pit'; then
@@ -54,20 +54,32 @@ fi
 
 nodes=$(ceph node ls | jq -r '.[] | keys[]' | sort -u)
 
+# Make changes to the installation prefix a bit easier with vars
+prefix=/var/lib/spire
+conf="${prefix}/conf"
+socket="${prefix}/agent.sock"
+datadir="${prefix}/data"
+svidkey="${datadir}/svid.key"
+bundleder="${datadir}/bundle.der"
+agentsvidder="${datadir}/agent_svid.der"
+jointoken="${conf}/join_token"
+spireagent="${conf}/spire-agent.conf"
+spirebundle="${conf}/bundle.crt"
+
 for node in $nodes; do
-	if sshnh "$node" spire-agent healthcheck -socketPath=/var/lib/spire/agent.sock 2>&1 | grep -q "healthy"; then
+	if sshnh "$node" spire-agent healthcheck -socketPath="${socket}" 2>&1 | grep -q "healthy"; then
 		echo "$node is already joined to spire and is healthy."
 	else
-		if sshnh "$node" ls /var/lib/spire/data/ | grep -q svid.key; then
+		if sshnh "$node" ls "${svidkey}" > /dev/null 2>&1; then
 			echo "$node was once joined to spire. Cleaning up old files"
-			sshnh "$node" rm /var/lib/spire/data/svid.key /var/lib/spire/bundle.der /var/lib/spire/agent_svid.der
+			sshnh "$node" rm "${svidkey}" "${bundleder}" "${agentsvidder}"
 		fi
 		echo "$node is being joined to spire."
-		XNAME="$(ssh "$node" cat /proc/cmdline | sed 's/.*xname=\([A-Za-z0-9]*\).*/\1/')"
+		XNAME="$(sshnh "$node" cat /proc/cmdline | sed 's/.*xname=\([A-Za-z0-9]*\).*/\1/')"
 		TOKEN="$(kubectl exec -n spire "$POD" --container spire-registration-server -- curl -k -X POST -d type=storage\&xname="$XNAME" "$URL" | tr ':' '=' | tr -d '"{}')"
-		sshnh "$node" "echo $TOKEN > /var/lib/spire/conf/join_token"
-		kubectl get configmap -n spire spire-ncn-config -o jsonpath='{.data.spire-agent\.conf}' | sed "s/server_address.*/server_address = \"$LOADBALANCERIP\"/" | sshnh "$node" "cat > /var/lib/spire/conf/spire-agent.conf"
-		kubectl get configmap -n spire spire-bundle -o jsonpath='{.data.bundle\.crt}' | sshnh "$node" "cat > /var/lib/spire/conf/bundle.crt"
+		sshnh "$node" "echo $TOKEN > ${jointoken}"
+		kubectl get configmap -n spire spire-ncn-config -o jsonpath='{.data.spire-agent\.conf}' | sed "s/server_address.*/server_address = \"$LOADBALANCERIP\"/" | sshnh "$node" "cat > ${spireagent}"
+		kubectl get configmap -n spire spire-bundle -o jsonpath='{.data.bundle\.crt}' | sshnh "$node" "cat > ${spirebundle}"
 		sshnh "$node" systemctl enable spire-agent
 		sshnh "$node" systemctl start spire-agent
 	fi
