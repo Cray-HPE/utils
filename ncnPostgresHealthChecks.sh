@@ -1,6 +1,26 @@
 #!/bin/bash
-
-# Copyright 2020-2021 Hewlett Packard Enterprise Development LP
+#
+# MIT License
+#
+# (C) Copyright 2022-2022 Hewlett Packard Enterprise Development LP
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
 #
 # For each postgres cluster, the ncnPostgresHealthChecks script determines
 # the leader pod and reports the status of all postgres pods in the cluster.
@@ -109,16 +129,16 @@ awk '{ sub("\r", "", $3); print $3 }'; )
 	case $patronictlVersion in
             "1.6.4" )
                 patronictlCmd="\$(timeout -k 4 --preserve-status --foreground \
-$Delay kubectl -n $c_ns exec \$m -- patronictl list 2>/dev/null | awk ' \$8 == \
+$Delay kubectl -n $c_ns -c postgres exec \$m -- patronictl list 2>/dev/null | awk ' \$8 == \
  \"Leader\" && \$10 == \"running\" {print \$4}')"
-		getLagCmd="\$(kubectl -n $c_ns exec \$leader -- patronictl list 2>/dev/null | grep running \
+		getLagCmd="\$(kubectl -n $c_ns -c postgres exec \$leader -- patronictl list 2>/dev/null | grep running \
 | grep -v Leader | awk '{print \$13 \" \" \$14}')"
 		;;
             "1.6.5" )
                 patronictlCmd="\$(timeout -k 4 --preserve-status --foreground \
-$Delay kubectl -n $c_ns exec \$m -- patronictl list 2>/dev/null | awk ' \$6 == \
+$Delay kubectl -n $c_ns -c postgres exec \$m -- patronictl list 2>/dev/null | awk ' \$6 == \
 \"Leader\" && \$8 == \"running\" {print \$2}')"
-		getLagCmd="\$(kubectl -n $c_ns exec \$leader -- patronictl list 2>/dev/null | grep running \
+		getLagCmd="\$(kubectl -n $c_ns -c postgres exec \$leader -- patronictl list 2>/dev/null | grep running \
 | grep -v Leader | awk '{print \$11 \" \" \$12}')"
 		;;
             * )
@@ -167,11 +187,11 @@ with leader pod: $leader ==="
 
             echo; echo "--- patronictl, version $patronictlVersion, list for $c_ns \
 leader pod $leader ---"
-            kubectl -n $c_ns exec $leader -- patronictl list 2>/dev/null
+            kubectl -n $c_ns -c postgres exec $leader -- patronictl list 2>/dev/null
 
             # verify the state of each cluster member is 'running'
 	    membersRunningPatroniFail=0
-	    num_running_patronictl=$(kubectl -n $c_ns exec $leader -- patronictl list 2>/dev/null | grep running | wc -l)
+	    num_running_patronictl=$(kubectl -n $c_ns -c postgres exec $leader -- patronictl list 2>/dev/null | grep running | wc -l)
 	    if [[ ! -z $(echo $leader | grep 'sma-postgres-cluster') ]]; then
                 if [[ $num_running_patronictl -ne 2 ]]; then membersRunningPatroniFail=1; fi
             else
