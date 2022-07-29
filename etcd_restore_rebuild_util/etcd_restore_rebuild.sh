@@ -1,4 +1,27 @@
 #!/bin/bash
+#
+# MIT License
+#
+# (C) Copyright 2022-2022 Hewlett Packard Enterprise Development LP
+#
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
+# Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included
+# in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+# OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+# ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+# OTHER DEALINGS IN THE SOFTWARE.
+#
 
 restore_all=0
 while getopts s:m:ah stack
@@ -38,7 +61,8 @@ main() {
         if [[ $ans == 'yes' ]]
         then
             echo "Proceeding: restoring/rebuilding all etcd clusters."
-            check_for_backups "$clusters"
+            # check_for_backups "$clusters"
+            check_for_backups "cray-bss-etcd"
         else
             echo "Exiting"
             exit 0
@@ -64,16 +88,80 @@ main() {
     else
         echo "Specify which clusters to restore/rebuild. Options: '-a' all, '-m <clusters>' multiple clusters (e.g. cray-bos-etcd,cray-bss-etcd), '-s <cluster>' single cluster (e.g. cray-bos-etcd)."
     fi
-    }
+}
+
+wait_for_running_pods_terminate() {
+    # $1: cluster ==> for example: cray-bss-etcd
+    # $2: namespace ==> for example: services
+    cluster=$1
+    namespace=$2
+    running_pod_cnt=0
+    pods_are_terminating='false'
+    terminating_pod_cnt=0
+    wait_terminating_cnt=0
+    
+    # If no pods are currently running, nothing to wait for:
+    running_pod_cnt=$(kubectl get pods -l etcd_cluster=$cluster -n $namespace | awk '$3 == "Running" {print $3}' | wc -w)
+    if (($running_pod_cnt == 0))
+    then
+        pods_are_terminating='noPodsFound'
+        echo "- Any existing $cluster pods no longer in \"Running\" state."
+        return
+    fi
+    
+    # Wait for first terminating pod to avoid false positive on seeing
+    # existing running pods in the cluster yet to be terminated:
+    while [[ $terminating_pod_cnt -lt 1 && $wait_terminating_cnt -lt 40 ]]
+    do
+        terminating_pod_cnt=$(kubectl get pods -l etcd_cluster=$cluster -n $namespace | awk '$3 == "Terminating" {print $3}' | wc -w)
+        echo "- Waiting for first terminating pod"
+        wait_terminating_cnt=$(( $wait_terminating_cnt + 1 ))
+        if [[ $terminating_pod_cnt -gt 0 ]]
+        then
+            pods_are_terminating='podsTerminating'
+        fi
+        sleep 3
+    done
+    if [[ $pods_are_terminating != 'podsTerminating' ]]
+    then
+        # Existing pods in the cluster failed to terminate.
+        pods_are_terminating='errorTerminating'
+    fi
+}
 
 wait_for_pods_start() {
+    # $1: cluster ==> for example: cray-bss-etcd
+    # $2: namespace ==> for example: services
+    # $3: spec_size ==> for example: 3 from calling function
+    #     Determined before restore or rebuild takes place.
+    local cluster=$1
+    namespace=$2
+    spec_size=$3
+    
     pods_started='false'
     waited_rounds=0
     previous_mem_ready=-1
-    spec_size=$(kubectl get etcd $1 -n $2 -o jsonpath='{.spec.size}')
+    etcd_client=""
+    
+    echo "- Waiting for $spec_size $cluster pods to be running:"
     while [[ $waited_rounds -lt 20 && $pods_started == 'false' ]]
     do
-        members_ready=$(kubectl get pods -l etcd_cluster=$1 -n $2 -o jsonpath='{.items[*].status.phase}' | grep "Running" | wc -w)
+        # Count number of running pods in the etcd cluster.
+        # Compare to the expected number of pods: 
+        members_ready=$(kubectl get pods -l etcd_cluster=$cluster -n $namespace | awk '$3 == "Running" {print $3}' | wc -w)
+        
+        # Once one etcd pod is running, verify etcd client pod exists:
+        if [[ $members_ready -gt 0 && -z $etcd_client ]]
+        then
+            # Verify that the etcd-client pod has been created:
+            etcd_client=$(kubectl get all -n $namespace | \
+                              awk 'NF == 6 && $1 + /^service\/'$cluster'-client/ && $2 == "ClusterIP" && $3 ~ /^[0-9]/ {print $1}')
+            if [[ -z $etcd_client ]]
+            then
+                pods_started='noEtcdClient'
+                return
+            fi
+        fi
         if [[ $spec_size -eq $members_ready ]]
         then
             pods_started='true'
@@ -87,13 +175,16 @@ wait_for_pods_start() {
             previous_mem_ready=$members_ready
         fi
     done
-    if [[ $pods_started != 'true' ]]
+    if [[ $pods_started == 'false' ]]
     then
         pods_started='errorStarting'
     fi 
 }
 
 wait_for_pods_terminate() {
+    # $1: cluster ==> for example: cray-bss-etcd
+    # $2: namespace ==> for example: services
+    
     pods_terminated='false'
     waited_rounds=0
     while [[ $waited_rounds -lt 20 && $pods_terminated == 'false' ]]
@@ -115,59 +206,89 @@ wait_for_pods_terminate() {
 }
 
 restore() {
+    # $1: backup ==> for example: cray-bss/etcd.backup_2022-06-01-16-10-11
     echo; echo " ----- Restoring from $1 ----- "
-    clust_backup=$(echo $1 | sed 's/\// /g') # replace '/' with space
-    etcd_cluster=$(echo $1 | cut -d '/' -f 1)'-etcd'
+    clust_backup=$(echo $1 | sed 's/\// /g') # replace '/' with space ==> cray-bss etcd.backup_2022-06-01-16-10-11
+    etcd_cluster=$(echo $1 | cut -d '/' -f 1)'-etcd' # ==> cray-bss-etcd
     namespace=$(kubectl get etcdclusters.etcd.database.coreos.com -A -o json | jq --arg name "${etcd_cluster}" '.items[].metadata | select (.name==$name) | .namespace' | sed 's/\"//g')
-    
-    # delete the etcd custom resource if one already exists
-    kubectl -n $namespace delete etcdrestore.etcd.database.coreos.com/${etcd_cluster} 2>/dev/null
 
-    #restore from latest backup
-    kubectl exec -it -n operators $(kubectl get pod -n operators | grep etcd-backup-restore | head -1 | awk '{print $1}') -c util -- restore_from_backup ${clust_backup}
-    if [[ $? != 0 ]]; then echo "Error: not able to restore from backup: ${clust_backup}."; return; fi
-    #wait for pods to come up
-    wait_for_pods_start $etcd_cluster $namespace
+    # First, get the spec size:
+    spec_size=$(kubectl get etcd $etcd_cluster -n $namespace -o jsonpath='{.spec.size}')
+    if (( $spec_size < 1 ))
+    then
+        echo "Error: spec.size reported as \"$spec_size\" - unable to determine the number of ${etcd_cluster} pods."
+        return
+    fi
+    
+    attempts=('zero' 'first' 'second' 'third' 'fourth')    
+    client_pod='false'
+    client_pod_loop_cnt=0
+    max_client_pod_attempts=4
+    # Loop and restore cluster again if cluster's client pod fails to be created:
+    while [[ $client_pod == 'false' && $client_pod_loop_cnt -lt $max_client_pod_attempts ]]
+    do
+        # delete the etcd custom resource if one already exists
+        kubectl -n $namespace delete etcdrestore.etcd.database.coreos.com/${etcd_cluster} 2>/dev/null
+        
+        #restore from latest backup
+        kubectl exec -it -n operators $(kubectl get pod -n operators | grep etcd-backup-restore | head -1 | awk '{print $1}') -c util -- restore_from_backup ${clust_backup}
+        if [[ $? != 0 ]]
+        then
+            echo
+            echo "Error: Not able to restore from backup: ${clust_backup}."
+            echo "Restoration of the ${etcd_cluster} cluster from $1 has failed."
+            break
+        fi
+        
+        # Wait for currently running pods to start terminating to avoid
+        # false indication that newly created pods are already running:
+        wait_for_running_pods_terminate $etcd_cluster $namespace
+        if [[ $pods_are_terminating == "errorTerminating" ]]
+        then
+            echo
+            echo "Error: Failed to detect that existing $etcd_cluster pods are terminating."
+            echo "Restoration of the ${etcd_cluster} cluster from $1 has failed."
+            break 
+        fi
+        
+        # Wait for new cluster pods to reach running state.
+        # Loop and do the restore again if etcd client pod not included with
+        # restored etcd cluster pods:
+        wait_for_pods_start $etcd_cluster $namespace $spec_size
+        if [[ $pods_started == 'noEtcdClient' ]]
+        then
+            client_pod_loop_cnt=$((client_pod_loop_cnt + 1))
+            echo
+            echo "The ${etcd_cluster}-client service failed to be created on the ${attempts[$client_pod_loop_cnt]} attempt to restore the ${etcd_cluster} cluster."
+            if (( $client_pod_loop_cnt < $max_client_pod_attempts ))
+               then
+                   echo "Proceeding with ${attempts[$((client_pod_loop_cnt +1))]} ${etcd_cluster} cluster restore attempt."
+                   sleep 10
+            fi
+            echo 
+        else
+           client_pod='true' 
+        fi
+    done
+
+    # Delete the etcd custom resource if one exists:
+    kubectl -n $namespace delete etcdrestore.etcd.database.coreos.com/${etcd_cluster} 2>/dev/null
+    echo $(date "+%Y-%m-%d-%H:%M:%S")
     if [[ $pods_started == 'true' ]]
     then
-        echo "Successfully restored ${etcd_cluster}"
+        echo "The ${etcd_cluster} cluster has successfully been restored from $1."
+    elif [[ $pods_started == 'noEtcdClient' ]]
+    then
+        echo
+        echo "The ${etcd_cluster}-client pod failed to be created after $client_pod_loop_cnt attempts to restore the ${etcd_cluster} cluster."
+        echo "Error: Restoration of the ${etcd_cluster} cluster from $1 has failed."
     elif [[ $pods_started == 'errorStarting' ]]
     then
-        echo "Error: Attempted to restore ${etcd_cluster} but not all pods are 'ready'."
-    else
-        echo "Function wait_for_pods didn't work."
+        echo
+        echo "Error: Attempting to restore the ${etcd_cluster} cluster failed. Not all pods reached the \"Running\" state."
+        echo "Restoration of the ${etcd_cluster} cluster from $1 has failed."
     fi
-}
-
-rebuild_vault() {
-    # capture the yaml file
-    kubectl -n vault get vault cray-vault -o yaml > /root/etcd/cray-vault.yaml
-    if [[ $? != 0 ]]; then echo "Error: not able to caputre vault deployment in yaml file."; return; fi
-    
-    # edit yaml
-    python3 edit_yaml_for_rebuild.py cray-vault
-    if [[ $? != 0 ]]; then echo "Error: not able to edit vault yaml file."; return; fi
-    
-    # Delete the vault and the current unseal key and wait for the pods to terminate
-    kubectl delete -f /root/etcd/cray-vault.yaml
-    if [[ $? != 0 ]]; then echo "Error: not able to terminate pods."; return; fi
-    kubectl -n vault delete secret cray-vault-unseal-keys
-    if [[ $? != 0 ]]; then echo "Error: not able to delete vault secret."; return; fi
-    
-    # wait for pods to terminate
-    wait_for_pods_terminate cray-vault-etcd vault
-    if [[ $pods_terminated == 'errorTerminating' ]]; then echo "Error: not all vault pods terminated."; return; fi
-
-    # apply the yaml
-    kubectl apply -f /root/etcd/cray-vault.yaml
-    if [[ $? != 0 ]]; then echo "Error: not able to apply vault."; return; fi
-
-    # wait for pods to be 'running'
-    wait_for_pods_start cray-vault-etcd vault
-    if [[ $pods_started != 'true' ]]; then echo "Error: Attempted to restart cray-vault-etcd but not all pods are 'ready'. "; fi
-
-    kubectl delete etcdbackup -n vault cray-vault-etcd-cluster-periodic-backup
-    if [[ $? != 0 ]]; then echo "Error: could not delete existing backup definition 'cray-vault-etcd-cluster-periodic-backup'. Manually check cray-vault-etcd is running and manually delete backup definition."; fi
+    echo
 }
 
 get_cluster() {
@@ -181,7 +302,7 @@ get_cluster() {
             cluster=$(kubectl get deployment -n $2 -o json | jq --arg chart ${helm_chart} '.items[].metadata | .name as $name | .labels | select ( .["helm.sh/chart"]==$chart ) | $name' | sed "s/\"//g")
         fi
     fi
-
+    
     if [[ -z $helm_chart ]]
     then
         echo "Unable to detect a corresponding service deployment paired with ${1}. Please enter cluster name. (e.g. when rebuilding cray-bos-etcd, enter: cray-bos)"
@@ -203,7 +324,7 @@ check_endpoint_health() {
 	    while [[ $iter -lt 5 ]] && [[ $success -eq 0 ]]
 	    do
             iter=$(( $iter + 1 ))
-		    temp=$(kubectl -n services exec -it ${pod} -- /bin/sh -c "ETCDCTL_API=3 etcdctl endpoint health -w json")
+		    temp=$(kubectl -n services exec -it -c etcd ${pod} -- /bin/sh -c "ETCDCTL_API=3 etcdctl endpoint health -w json")
 		    if [[ $? == 0 ]]
             then
                 success=1
@@ -222,69 +343,94 @@ check_endpoint_health() {
 }
 
 rebuild() {
+    # $1: cluster ==> for example: cray-bss-etcd
     etcd_cluster=$1
     echo; echo " ----- Rebuilding $etcd_cluster ----- "
-    if [[ $etcd_cluster == 'cray-vault-etcd' ]]
-    then
-        rebuild_vault
-    else
-        namespace=$(kubectl get etcdclusters.etcd.database.coreos.com -A -o json | jq --arg name "${etcd_cluster}" '.items[].metadata | select (.name==$name) | .namespace' | sed 's/\"//g')
-        # gets cluster name for deployment
-        get_cluster $etcd_cluster $namespace
-        
-        #capture deployments and etcd cluster objects
-        kubectl -n $namespace get deployment ${cluster} -o yaml > /root/etcd/${cluster}.yaml
-        if [[ $? != 0 ]]; then echo "Error: not able to get deployment ${cluster}."; return; fi
-        kubectl -n $namespace get etcd ${etcd_cluster} -o yaml > /root/etcd/${etcd_cluster}.yaml
-        if [[ $? != 0 ]]; then echo "Error: not able to get etcd ${etcd_cluster}."; return; fi
-        echo "Deployment and etcd cluster objects captured in yaml file"
-        
-        # edit yaml
-        python3 edit_yaml_for_rebuild.py $cluster
-        if [[ $? != 0 ]]; then echo "Error: not able to edit yaml at /root/etcd/${cluster}."; return; fi
-        python3 edit_yaml_for_rebuild.py $etcd_cluster
-        if [[ $? != 0 ]]; then echo "Error: not able to edit yaml at /root/etcd/${etcd_cluster}."; return; fi
-        echo "yaml files edited"
-        
-        # delete deployment and etcd cluster
-        kubectl delete -f /root/etcd/${cluster}.yaml
-        if [[ $? != 0 ]]; then echo "Error: not able to edit yaml at /root/etcd/${cluster}."; return; fi
-        kubectl delete -f /root/etcd/${etcd_cluster}.yaml
-        if [[ $? != 0 ]]; then echo "Error: not able to edit yaml at /root/etcd/${etcd_cluster}."; return; fi
-        
-        # wait for pods to terminate
-        echo "Waiting for pods to terminate."
-        wait_for_pods_terminate $etcd_cluster $namespace
-        if [[ $pods_terminated == 'errorTerminating' ]]; then echo "Error: not able to terminate ${etcd_cluster} pods."; return; fi
-        
-        # apply etcd cluster yaml and wait for pods to be Running
-        kubectl -n $namespace apply -f /root/etcd/${etcd_cluster}.yaml
-        if [[ $? != 0 ]]; then echo "Error applying etcd cluster. Try to applying manually 'kubectl -n $namespace apply -f /root/etcd/${etcd_cluster}.yaml'"; return; fi
-        echo "Waiting for pods to be 'Running'."
-        wait_for_pods_start $etcd_cluster $namespace
-        if [[ $pods_started == 'errorStarting' ]]; then echo "Error: not able to start ${etcd_cluster} pods."; return; fi
-        
-        # check endpoint health
-        check_endpoint_health $etcd_cluster $namespace
-        kubectl -n services apply -f /root/etcd/${cluster}.yaml
-        if [[ $? != 0 ]]; then echo "Error: not able to apply cluster ${cluster}. Try to reapply."; fi
-        if [[ $pods_health == 'notHealthy' ]]
-        then
-            echo "Error: Pods are not healthy after being rebuilt. Try rebuilding ${etcd_cluster} again."
-        else
-            echo; echo "SUCCESSFUL REBUILD ${etcd_cluster}."; echo
-        fi
+    
+    namespace=$(kubectl get etcdclusters.etcd.database.coreos.com -A -o json | jq --arg name "${etcd_cluster}" '.items[].metadata | select (.name==$name) | .namespace' | sed 's/\"//g')
+    # get cluster name for deployment.
+    # For example variable cluster will be set to: cray-bss
+    get_cluster $etcd_cluster $namespace
 
-        # delete existing etcd backup
-        backup_name=$(kubectl get etcdbackup -n $namespace | awk 'NF > 1  && $1 + /^'$cluster'-etcd-cluster-periodic/ {print $1}')
-        if [[ ! -z $backup_name ]]
-        then
-            kubectl delete etcdbackup -n services $backup_name
-        else
-            echo "Could not find existing backup definition. If one exists, it should be deleted so a new one can be created that points to the new cluster IP."
-            echo "Example delete command: groot-ncn-w001:~ # kubectl delete etcdbackup -n services cray-bos-etcd-cluster-periodic-backup"
-        fi
+    # First, get the spec size:
+    spec_size=$(kubectl get etcd $etcd_cluster -n $namespace -o jsonpath='{.spec.size}')
+    if (( $spec_size < 1 ))
+    then
+        echo "Error: spec.size reported as \"$spec_size\" - unable to determine the number of ${etcd_cluster} pods."
+        return
     fi
+    
+    #capture deployments and etcd cluster objects
+    kubectl -n $namespace get deployment ${cluster} -o yaml > /root/etcd/${cluster}.yaml
+    if [[ $? != 0 ]]; then echo "Error: not able to get deployment ${cluster}."; return; fi
+    kubectl -n $namespace get etcd ${etcd_cluster} -o yaml > /root/etcd/${etcd_cluster}.yaml
+    if [[ $? != 0 ]]; then echo "Error: not able to get etcd ${etcd_cluster}."; return; fi
+    echo "Deployment and etcd cluster objects captured in yaml file"
+    
+    # edit yaml
+    python3 edit_yaml_for_rebuild.py $cluster
+    if [[ $? != 0 ]]; then echo "Error: not able to edit yaml at /root/etcd/${cluster}."; return; fi
+    python3 edit_yaml_for_rebuild.py $etcd_cluster
+    if [[ $? != 0 ]]; then echo "Error: not able to edit yaml at /root/etcd/${etcd_cluster}."; return; fi
+    echo "yaml files edited"
+    
+    # delete deployment and etcd cluster
+    kubectl delete -f /root/etcd/${cluster}.yaml
+    if [[ $? != 0 ]]; then echo "Error: not able to edit yaml at /root/etcd/${cluster}."; return; fi
+    kubectl delete -f /root/etcd/${etcd_cluster}.yaml
+    if [[ $? != 0 ]]; then echo "Error: not able to edit yaml at /root/etcd/${etcd_cluster}."; return; fi
+    
+    # wait for pods to terminate
+    echo "Waiting for pods to terminate."
+    wait_for_pods_terminate $etcd_cluster $namespace
+    if [[ $pods_terminated == 'errorTerminating' ]]
+    then
+        echo "Error: not able to terminate ${etcd_cluster} pods."
+        return
+    fi
+    
+    # apply etcd cluster yaml and wait for pods to be Running
+    kubectl -n $namespace apply -f /root/etcd/${etcd_cluster}.yaml
+    if [[ $? != 0 ]]
+    then
+        echo "Error applying etcd cluster. Try to applying manually 'kubectl -n $namespace apply -f /root/etcd/${etcd_cluster}.yaml'"
+        return
+    fi
+    
+    echo "Waiting for pods to be 'Running'."
+    wait_for_pods_start $etcd_cluster $namespace $spec_size
+    if [[ $pods_started == 'noEtcdClient' ]]
+    then
+        echo "The ${etcd_cluster}-client pod failed to be created."
+        return
+    elif [[ $pods_started == 'errorStarting' ]]
+    then
+        echo "Error: not able to start ${etcd_cluster} pods."
+        return
+    fi
+    
+    # check endpoint health
+    echo "Checking endpoint health."
+    check_endpoint_health $etcd_cluster $namespace
+    
+    kubectl -n services apply -f /root/etcd/${cluster}.yaml
+    if [[ $? != 0 ]]; then echo "Error: not able to apply cluster ${cluster}. Try to reapply."; fi
+    echo $(date "+%Y-%m-%d-%H:%M:%S")
+    if [[ $pods_health == 'notHealthy' ]]
+    then
+        echo "Error: Pods are not healthy after being rebuilt. Try rebuilding ${etcd_cluster} again."
+    else
+        echo "SUCCESSFUL REBUILD of the ${etcd_cluster} cluster completed."; echo
+    fi
+
+    # if it exists, silently delete old periodic-backup yaml. Allows 
+    # top-of-the-hour cron job to create a new one for this latest restore.
+    backup_name=$(kubectl get etcdbackup -n $namespace | awk 'NF > 1  && $1 + /^'$cluster'-etcd-cluster-periodic/ {print $1}')
+    if [[ ! -z $backup_name ]]
+    then
+        kubectl delete etcdbackup -n services $backup_name
+    fi
+    echo
 }
 
 prompt_to_rebuild() {
@@ -324,7 +470,8 @@ check_clusters_exist()  {
 get_latest_backup() {
     most_recent_backup=""
     most_recent_backup_sec=""
-    backups="$1"
+    local backups="$1"
+    
     for backup_instance in $backups
     do
         if [[ $most_recent_backup == "" ]]
@@ -344,6 +491,12 @@ get_latest_backup() {
             fi
         fi
     done
+    # Remove the '\r' carriage return at the end of the backup instance.
+    # The '\r' is included in the etcd-backup-restore operator's output:
+    # most_recent_backup=$'cray-bss/etcd.backup_v261466_2022-07-25-16:51:43\r'
+    # Can be seen when "set -x" is included here, or in the
+    # check_for_backups() function.
+    most_recent_backup=$(echo $most_recent_backup | sed 's/\r$//')
 }
 
 check_for_backups() {
@@ -352,11 +505,14 @@ check_for_backups() {
     for etcd_cluster in $1
     do
         backups=$(kubectl exec -it -n operators $(kubectl get pod -n operators | grep etcd-backup-restore | head -1 | awk '{print $1}') -c boto3 -- list_backups ${etcd_cluster%-etcd} 2> /dev/null)
+        
         if [[ "$backups" != *"KeyError: 'Contents'"* ]] && [[ ! -z $backups ]] # check if any backups exist
         then
             get_latest_backup "$backups"
-            #restore from backup
-            if [[ $(( $current_date_sec - $most_recent_backup_sec )) -gt $one_week_sec ]] # check if backup is more than 7 days old
+            
+            # restore from backup
+            # check if backup is more than 7 days old
+            if [[ $(( $current_date_sec - $most_recent_backup_sec )) -gt $one_week_sec ]] 
             then
                 echo "You are restoring a backup that is older than 7 days. The backup is ${most_recent_backup}"
                 echo "Do you wish to proceed restoring? (yes/no)"
@@ -375,7 +531,7 @@ check_for_backups() {
             to_rebuild="${to_rebuild} ${etcd_cluster}"
         fi
     done
-
+    
     if [[ $to_rebuild != "" ]]
     then
         prompt_to_rebuild "$to_rebuild"
