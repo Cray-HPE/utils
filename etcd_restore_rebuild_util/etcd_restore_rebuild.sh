@@ -61,8 +61,7 @@ main() {
         if [[ $ans == 'yes' ]]
         then
             echo "Proceeding: restoring/rebuilding all etcd clusters."
-            # check_for_backups "$clusters"
-            check_for_backups "cray-bss-etcd"
+            check_for_backups "$clusters"
         else
             echo "Exiting"
             exit 0
