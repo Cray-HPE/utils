@@ -179,7 +179,7 @@ etcd_health_status() {
                 -o jsonpath='{.items[*].metadata.name}')
     do
         echo "### ${pod} ###"
-        timeout $Delay kubectl -n services exec ${pod} -- /bin/sh -c \
+        timeout $Delay kubectl -n services exec ${pod} -c etcd -- /bin/sh -c \
                 "ETCDCTL_API=3 etcdctl endpoint health"; if [[ $? -ne 0 ]]; \
                 then echo "FAILED - Pod Not Healthy"; etcdHealthFail=1; fi
     done
@@ -243,7 +243,7 @@ Services Namespace. ==="
                         -o jsonpath='{.items[*].metadata.name}')
     do
         echo "### ${pod} Alarms Set: ###"
-        alarms=$(timeout $Delay kubectl -n services exec ${pod} -- /bin/sh \
+        alarms=$(timeout $Delay kubectl -n services exec ${pod} -c etcd -- /bin/sh \
             -c "ETCDCTL_API=3 etcdctl alarm list"); if [[ $? -ne 0 ]];\
                 then echo "FAILED - Pod Not Healthy"; etcdAlarmFail=1; fi
         if [[ ! -z $alarms ]]; then echo $alarms; etcdAlarmFail=1; fi
@@ -268,7 +268,7 @@ etcd_database_health() {
     do
         echo "### ${pod} Etcd Database Check: ###"
         dbc=$(timeout  --preserve-status --foreground $Delay kubectl \
-                    -n services exec ${pod} -- /bin/sh \
+                    -n services exec ${pod} -c etcd -- /bin/sh \
                     -c "ETCDCTL_API=3 etcdctl put foo fooCheck && \
                     ETCDCTL_API=3 etcdctl get foo && \
                     ETCDCTL_API=3 etcdctl del foo && \
