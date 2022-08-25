@@ -62,4 +62,4 @@ install -m 755 etcd_restore_rebuild_util/edit_yaml_for_rebuild.py %{buildroot}%{
 install -m 755 etcd_restore_rebuild_util/etcd_restore_rebuild.sh %{buildroot}%{utils_dir}/etcd_restore_rebuild_util
 
 %post
-ln -sf /opt/cray/tests/install/ncn/ceph-service-status.sh %{buildroot}%{utils_dir}/ceph-service-status.sh 
+ln -sf /opt/cray/tests/install/ncn/scripts/ceph-service-status.sh /opt/cray/platform-utils/ceph-service-status.sh 
