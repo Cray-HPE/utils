@@ -33,7 +33,6 @@ the /opt/cray/platform-utils directory.
 %{utils_dir}/detect_cpu_throttling.sh
 %{utils_dir}/grafterm.sh
 %{utils_dir}/move_pod.sh
-%{utils_dir}/ceph-service-status.sh
 %{utils_dir}/s3/download-file.py
 %{utils_dir}/s3/list-objects.py
 %{utils_dir}/spire/fix-spire-on-storage.sh
@@ -55,10 +54,10 @@ install -m 755 ncnHealthChecks.sh %{buildroot}%{utils_dir}
 install -m 755 ncnPostgresHealthChecks.sh %{buildroot}%{utils_dir}
 install -m 755 detect_cpu_throttling.sh %{buildroot}%{utils_dir}
 install -m 755 move_pod.sh %{buildroot}%{utils_dir}
-install -m 755 ceph-service-status.sh %{buildroot}%{utils_dir}
 install -m 755 grafterm.sh %{buildroot}%{utils_dir}
 install -m 755 s3/list-objects.py %{buildroot}%{utils_dir}/s3
 install -m 755 s3/download-file.py %{buildroot}%{utils_dir}/s3
 install -m 755 spire/fix-spire-on-storage.sh %{buildroot}%{utils_dir}/spire
 install -m 755 etcd_restore_rebuild_util/edit_yaml_for_rebuild.py %{buildroot}%{utils_dir}/etcd_restore_rebuild_util
 install -m 755 etcd_restore_rebuild_util/etcd_restore_rebuild.sh %{buildroot}%{utils_dir}/etcd_restore_rebuild_util
+ln -sf /opt/cray/tests/install/ncn/ceph-service-status.sh %{buildroot}%{utils_dir}/ceph-service-status.sh 
