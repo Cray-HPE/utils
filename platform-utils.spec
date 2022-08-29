@@ -61,5 +61,5 @@ install -m 755 s3/download-file.py %{buildroot}%{utils_dir}/s3
 install -m 755 spire/fix-spire-on-storage.sh %{buildroot}%{utils_dir}/spire
 install -m 755 etcd_restore_rebuild_util/edit_yaml_for_rebuild.py %{buildroot}%{utils_dir}/etcd_restore_rebuild_util
 install -m 755 etcd_restore_rebuild_util/etcd_restore_rebuild.sh %{buildroot}%{utils_dir}/etcd_restore_rebuild_util
-ln -sf %{buildroot}/opt/cray/tests/install/ncn/scripts/ceph-service-status.sh %{buildroot}%{utils_dir}/ceph-service-status.sh 
+ln -sf /opt/cray/tests/install/ncn/scripts/ceph-service-status.sh %{buildroot}%{utils_dir}/ceph-service-status.sh 
 
