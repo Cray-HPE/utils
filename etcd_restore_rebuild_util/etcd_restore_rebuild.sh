@@ -367,9 +367,9 @@ rebuild() {
     echo "Deployment and etcd cluster objects captured in yaml file"
     
     # edit yaml
-    python3 edit_yaml_for_rebuild.py $cluster
+    python3 /opt/cray/platform-utils/etcd_restore_rebuild_util/edit_yaml_for_rebuild.py $cluster
     if [[ $? != 0 ]]; then echo "Error: not able to edit yaml at /root/etcd/${cluster}."; return; fi
-    python3 edit_yaml_for_rebuild.py $etcd_cluster
+    python3 /opt/cray/platform-utils/etcd_restore_rebuild_util/edit_yaml_for_rebuild.py $etcd_cluster
     if [[ $? != 0 ]]; then echo "Error: not able to edit yaml at /root/etcd/${etcd_cluster}."; return; fi
     echo "yaml files edited"
     
