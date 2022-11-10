@@ -533,9 +533,8 @@ run_complete_health_check() {
     echo "=== Executing on $hostName, $(date) ==="
     csmVersion=$(kubectl -n services get cm cray-product-catalog \
                          -o jsonpath='{.data.csm}' 2>/dev/null |  \
-                         yq r -j - 2>/dev/null | jq -c 'to_entries[] | \
-                         select(.value.active==true) | \
-                         .key'  2>/dev/null | tr -d '"')
+                         yq r -j - 2>/dev/null | \
+                         jq 'to_entries[] | select(.value.active==true) | .key' 2>/dev/null | tr -d '"')
     echo "=== Active CSM version:"
     echo "$csmVersion"
     echo
