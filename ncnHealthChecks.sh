@@ -394,11 +394,11 @@ node_resource_consumption() {
     echo "=== date; kubectl top nodes ==="
     date;
     cpuMemoryFail=0
-    kubectl top nodes
+    kubectl top nodes 2> /dev/null
     nodes=$(kubectl get nodes -o jsonpath='{.items[*].metadata.name}')
     for node in $nodes
     do
-        node_data=$(kubectl top nodes $node | tail -1)
+        node_data=$(kubectl top nodes $node 2> /dev/null | tail -1)
         cpu=$(echo $node_data | awk '{print $3}')
         cpu=${cpu%?}
         memory=$(echo $node_data | awk '{print $5}')
@@ -532,11 +532,10 @@ run_complete_health_check() {
     hostName=$(hostname)
     echo "=== Executing on $hostName, $(date) ==="
     csmVersion=$(kubectl -n services get cm cray-product-catalog \
-                         -o jsonpath='{.data.csm}' 2>/dev/null | \
+                         -o jsonpath='{.data.csm}' 2>/dev/null |  \
                          yq r -j - 2>/dev/null | \
-                         jq -r 'keys[]' 2>/dev/null | \
-                         sed '/-/!{s/$/_/}' | sort -V | sed 's/_$//')
-    echo "=== CSM version:"
+                         jq 'to_entries[] | select(.value.active==true) | .key' 2>/dev/null | tr -d '"')
+    echo "=== Active CSM version:"
     echo "$csmVersion"
     echo
     # run all health checks
