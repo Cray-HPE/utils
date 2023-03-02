@@ -172,17 +172,22 @@ etcd_health_status() {
     etcdHealthFail=0
     echo "**************************************************************************"
     echo
-    echo "=== Check the Health of the Etcd Clusters in the Services Namespace. ==="
+    echo "=== Check the Health of the Etcd Clusters in all Namespaces. ==="
     echo "=== Verify a \"healthy\" Report for Each Etcd Pod. ==="
     date;
-    for pod in $(kubectl get pods -l app=etcd -n services \
-                -o jsonpath='{.items[*].metadata.name}')
-    do
-        echo "### ${pod} ###"
-        timeout $Delay kubectl -n services exec ${pod} -c etcd -- /bin/sh -c \
-                "ETCDCTL_API=3 etcdctl endpoint health"; if [[ $? -ne 0 ]]; \
-                then echo "FAILED - Pod Not Healthy"; etcdHealthFail=1; fi
+
+    eps=$(kubectl get endpoints -A | grep bitnami-etcd | grep -v headless | awk '{print $2}')
+    for ep in $eps; do
+      ns=$(kubectl get statefulset -A -o json | jq --arg name "${ep}" '.items[].metadata | select (.name==$name) | .namespace' | sed 's/\"//g')
+      for pod in $(kubectl get endpoints ${ep} -n ${ns} -o json | jq -r .subsets[].addresses[].targetRef.name)
+      do
+          echo "### ${pod} ###"
+          timeout $Delay kubectl -n services exec ${pod} -c etcd -- /bin/sh -c \
+                  "etcdctl endpoint health"; if [[ $? -ne 0 ]]; \
+                  then echo "FAILED - Pod Not Healthy"; etcdHealthFail=1; fi
+      done
     done
+
     if [[ $etcdHealthFail -eq 1 ]]
     then
         echo " --- FAILED --- not all Etcd pods are \"healthy\" "
@@ -202,16 +207,15 @@ etcd_cluster_balance() {
     date
     for ns in services
     do
-        for cluster in $(kubectl get etcdclusters.etcd.database.coreos.com \
-                                -n $ns | grep -v NAME | awk '{print $1}')
+        for cluster in $(kubectl get statefulsets.apps -A | grep bitnami-etcd | awk '{print $2}')
         do
             # check each cluster contains the correct number of pods
-            kubectl get pod -n $ns -o wide | grep $cluster; echo ""
-            num_pods=$(kubectl get pod -n $ns -o wide | grep $cluster | wc -l)
-            expected_num_pods=$(kubectl get etcd $cluster -n $ns -o jsonpath='{.spec.size}')
+            kubectl get pod -n $ns -o wide | grep $cluster | grep -v snapshotter; echo ""
+            num_pods=$(kubectl get pod -n $ns -o wide | grep $cluster | grep -v snapshotter | wc -l)
+            expected_num_pods=$(kubectl get statefulset $cluster -n $ns -o jsonpath='{.spec.replicas}')
             if [[ $num_pods -ne $expected_num_pods ]]; then etcdPodHealthFail=1; echo "ERROR: incorrect number of pods running."; echo; fi
             # check that no two pods are on the same worker node
-            wnodes=$(kubectl get pod -n $ns -o wide | grep $cluster | awk '{print $7}')
+            wnodes=$(kubectl get pod -n $ns -o wide | grep $cluster | grep -v snapshotter | awk '{print $7}')
             for node in $wnodes
             do
                 num_pods_per_node=$(echo $wnodes | grep -o $node | wc -l)
@@ -235,18 +239,22 @@ etcd_cluster_balance() {
 etcd_alarm_check() {
     echo "**************************************************************************"
     echo
-    echo "=== Check if any \"alarms\" are set for any of the Etcd Clusters in the \
-Services Namespace. ==="
+    echo "=== Check if any \"alarms\" are set for any of the Etcd Clusters in all \
+Namespaces. ==="
     echo "=== An empty list is returned if no alarms are set ==="
     etcdAlarmFail=0
-    for pod in $(kubectl get pods -l app=etcd -n services \
-                        -o jsonpath='{.items[*].metadata.name}')
-    do
-        echo "### ${pod} Alarms Set: ###"
-        alarms=$(timeout $Delay kubectl -n services exec ${pod} -c etcd -- /bin/sh \
-            -c "ETCDCTL_API=3 etcdctl alarm list"); if [[ $? -ne 0 ]];\
-                then echo "FAILED - Pod Not Healthy"; etcdAlarmFail=1; fi
-        if [[ ! -z $alarms ]]; then echo $alarms; etcdAlarmFail=1; fi
+
+    eps=$(kubectl get endpoints -A | grep bitnami-etcd | grep -v headless | awk '{print $2}')
+    for ep in $eps; do
+      ns=$(kubectl get statefulset -A -o json | jq --arg name "${ep}" '.items[].metadata | select (.name==$name) | .namespace' | sed 's/\"//g')
+      for pod in $(kubectl get endpoints ${ep} -n ${ns} -o json | jq -r .subsets[].addresses[].targetRef.name)
+      do
+          echo "### ${pod} Alarms Set: ###"
+          alarms=$(timeout $Delay kubectl -n ${ns} exec ${pod} -c etcd -- /bin/sh \
+              -c "etcdctl alarm list"); if [[ $? -ne 0 ]];\
+                  then echo "FAILED - Pod Not Healthy"; etcdAlarmFail=1; fi
+          if [[ ! -z $alarms ]]; then echo $alarms; etcdAlarmFail=1; fi
+      done
     done
     if [[ $etcdAlarmFail -eq 1 ]]
     then
@@ -263,12 +271,14 @@ etcd_database_health() {
     echo "=== Check the health of Etcd Cluster's database in the Services Namespace. ==="
     echo "=== PASS or FAIL status returned. ==="
     etcdDatabaseFail=0
-    for pod in $(kubectl get pods -l app=etcd -n services \
-                        -o jsonpath='{.items[*].metadata.name}')
-    do
+    eps=$(kubectl get endpoints -A | grep bitnami-etcd | grep -v headless | awk '{print $2}')
+    for ep in $eps; do
+      ns=$(kubectl get statefulset -A -o json | jq --arg name "${ep}" '.items[].metadata | select (.name==$name) | .namespace' | sed 's/\"//g')
+      for pod in $(kubectl get endpoints ${ep} -n ${ns} -o json | jq -r .subsets[].addresses[].targetRef.name)
+      do
         echo "### ${pod} Etcd Database Check: ###"
         dbc=$(timeout  --preserve-status --foreground $Delay kubectl \
-                    -n services exec ${pod} -c etcd -- /bin/sh \
+                    -n ${ns} exec ${pod} -c etcd -- /bin/sh \
                     -c "ETCDCTL_API=3 etcdctl put foo fooCheck && \
                     ETCDCTL_API=3 etcdctl get foo && \
                     ETCDCTL_API=3 etcdctl del foo && \
@@ -282,6 +292,7 @@ etcd_database_health() {
         echo $output
         status=$(echo $output | awk '{ print $1 }')
         if [[ $status != "PASS:" ]]; then etcdDatabaseFail=1; fi
+      done
     done
     if [[ $etcdDatabaseFail -eq 1 ]]
     then
@@ -303,47 +314,27 @@ etcd_backups_check() {
     echo "=== Clusters without Automated Backups: ==="
     echo "=== HBTD, HMNFD, REDS, UAS & CPS ==="
     echo "=== Automatic backups generated after cluster has been running 24 hours. ==="
-    echo "=== date; kubectl exec -it -n operators \$(kubectl get pod -n operators \
-| grep etcd-backup-restore | head -1 | awk '{print \$1}') -c boto3 -- \
-list_backups <cluster> ; ==="
+    echo "=== Backups can be listed as follows:"
+    echo "=== % /opt/cray/platform-utils/etcd/etcd-util.sh list_backups cray-bos"
     backupHealthFail=0
     date
     current_date_sec=$(date +"%s")
     one_day_sec=86400
-    for cluster in cray-bos cray-bss cray-crus cray-fas
+    for cluster in cray-bos cray-bss cray-crus cray-fas cray-uas-mgr
     do
         echo; echo "-- $cluster -- backups"
-        backup_within_day=0
-        backups=$(kubectl exec -it -n operators $(kubectl get pod -n operators | \
-            grep etcd-backup-restore | head -1 | awk '{print $1}') -c boto3 -- list_backups ${cluster})
-        if [[ "$backups" != *"KeyError: 'Contents'"* ]] && [[ ! -z $backups ]] # check if any backups exist
+        backup_within_day=""
+	backups=$(/opt/cray/platform-utils/etcd/etcd-util.sh list_backups ${cluster})
+        if [[ "$backups" != *"No backups found"* ]] && [[ ! -z $backups ]] # check if any backups exist
         then
-            for backup in $backups
-            do
-                echo $backup
-                backup_date=$(echo $backup | cut -d '_' -f 3 | sed "s/-/ /3")
-                if [[ -z $backup_date ]]
-                then
-                    echo " -Check date manually. Unable to get date from backup: $backup "
-                else
-                    backup_sec=$(date -d "${backup_date}" "+%s")
-                    if [[ -z $backup_sec ]]; then echo "unable to get date from backup name"; fi
-                    if [[ ! -z $backup_sec && $(( $current_date_sec - $backup_sec )) -lt $one_day_sec ]] # check if backup is less that 24 hour old
-                    then
-                        backup_within_day=1
-                    fi
-                fi
-            done
-        fi
-        # look at age of cluster
-        age=$(kubectl get etcd ${cluster}-etcd -n services -o jsonpath='{.metadata.creationTimestamp}')
+          backup_within_day=$(/opt/cray/platform-utils/etcd/etcd-util.sh has_recent_backup ${cluster} 1 | sed 's/\r$//')
+	fi
+        age=$(kubectl get statefulset ${cluster}-bitnami-etcd -n services -o jsonpath='{.metadata.creationTimestamp}')
         if [[ ! -z $age ]]
         then
             age_sec=$(date -d "${age}" "+%s")
-            if [[ $(( $current_date_sec - $age_sec )) -gt $one_day_sec ]]
-            then
-                if [[ $backup_within_day -eq 1 ]]
-                then
+            if [[ $(( $current_date_sec - $age_sec )) -gt $one_day_sec ]]; then
+                if [ "$backup_within_day" == "Pass" ]; then
                     echo "PASS: backup found less than 24 hours old."
                 else
                     echo "ERROR: Expected backup because $cluster is over 24 hours old (creationTimestamp: $age). Expected a backup created within the last 24 hours."
@@ -353,7 +344,7 @@ list_backups <cluster> ; ==="
                 echo "$cluster is less than 24 hours old so no recent backups are expected (creationTimestamp: ${age})."
             fi
         else
-            echo "ERROR: could not get etcd ${cluster}-etcd. Check that cluster is running."
+            echo "ERROR: could not get statefulset ${cluster}-bitnami-etcd. Check that cluster is running."
             backupHealthFail=1
         fi
     done
