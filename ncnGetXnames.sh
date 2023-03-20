@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2021 Hewlett Packard Enterprise Development LP
+# Copyright 2021-2023 Hewlett Packard Enterprise Development LP
 #
 # The ncnGetXnames script returns a list of NCN names, the associated xname
 # and metal.no-wipe setting.
@@ -12,6 +12,10 @@
 # any directory. The ncnHealthChecks script can be run before and after an
 # NCN node is rebooted.
 #
+
+# Set a delay of 15 seconds for use with ssh timeout option:
+Delay=${Delay:-15}
+sshOptions="-q -o StrictHostKeyChecking=no -o ConnectTimeout=$Delay"
 
 function get_token() {
   cnt=0
@@ -39,8 +43,6 @@ echo "             +++++ Get NCN Xnames +++++"
 echo "=== Can be executed on any worker or master NCN node. ==="
 hostName=$(hostname)
 echo "=== Executing on $hostName, $(date) ==="
-
-sshOptions="-q -o StrictHostKeyChecking=no"
 
 # Get master nodes:
 mNcnNodes=$(kubectl get nodes --selector='node-role.kubernetes.io/master' \
@@ -70,11 +72,13 @@ echo "=== NCN Master nodes: ${mNcnNodes}==="
 echo "=== NCN Worker nodes: ${wNcnNodes}==="
 echo "=== NCN Storage nodes: $sNcnNodes ==="
 
+noWipeFail=0
 export TOKEN=$(get_token)
 if [[ -z $TOKEN ]]
 then
-    echo "Failed to get token, skipping metal.no-wipe checks."
-fi    
+    echo "Failed to get token, skipping metal.no-wipe checks. "
+    noWipeFail=2
+fi
 date;
 for ncn_i in $ncnNodes
 do
@@ -85,25 +89,41 @@ do
         echo "Failed to obtain xname for $ncn_i"
         continue;
     fi
+    if [[ $noWipeFail -eq 2 ]]
+    then
+        echo "$xName - unavailable"
+        continue
+    fi
     noWipe=""
     iter=0
+    # Because we're using bootparameters instead of bootscript, this loop is likely no longer
+    # necessary. However, it also doesn't hurt to have it.
     while [[ -z $noWipe && $iter -lt 5 ]]; do
-        if [[ $ncn_i == "ncn-m001" ]]
-        then
-            macAddress=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?name=${xName}" | grep chain)
-            macAddress=${macAddress#*mac=}
-            macAddress=${macAddress%&arch*}
-            noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?mac=${macAddress}&arch=x86" | grep -o metal.no-wipe=[01])
-        else
-            noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootscript?name=${xName}" | grep -o metal.no-wipe=[01])
-        fi
+        noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootparameters?name=${xName}" | grep -o "metal.no-wipe=[01]")
         if [[ -z $noWipe ]]; then sleep 3; fi
         iter=$(($iter + 1))
     done
-    if [[ -z $noWipe ]]; then noWipe='unavailable'; fi
+    if [[ -z $noWipe ]]
+    then
+        noWipe='unavailable'
+        noWipeFail=1
+    else
+        noWipeVal=$(echo $noWipe | cut -d "=" -f2)
+        if [[ $noWipeVal -ne 1 ]]; then noWipeFail=1; fi
+    fi
     echo "$xName - $noWipe"
 done
+if [[ $noWipeFail -eq 1 ]]
+then
+    echo " --- FAILED --- metal.no-wipe status is not 1. (note: node_status = upgrade/rebuild, then metal.no-wipe=0 is valid)";
+    exit_code=1
+elif [[ $noWipeFail -eq 2 ]]
+then
+    echo " --- FAILED --- Failed to get token, skipped metal.no-wipe checks. Could not verify no-wipe status.";
+    exit_code=1
+else echo " --- PASSED ---"; fi
 echo
 
-exit 0
+exit $exit_code
+
 

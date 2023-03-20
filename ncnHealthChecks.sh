@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2020-2021 Hewlett Packard Enterprise Development LP
+# Copyright 2020-2023 Hewlett Packard Enterprise Development LP
 #
 # The ncnHealthChecks script executes a number of NCN system health checks:
 #    Report Kubernetes status for Master and worker nodes
@@ -26,23 +26,24 @@
 
 failureMsg=""
 exit_code=0
-# Set a delay of 15 seconds for use with timeout command:
-Delay=15
+# Set a delay of 15 seconds for use with timeout and ssh commands:
+Delay=${Delay:-15}
+sshOptions="-q -o StrictHostKeyChecking=no -o ConnectTimeout=$Delay"
 
 while getopts s:h stack
 do
     case "${stack}" in
-          s) single_test=$OPTARG;;
-          h) echo "usage: ncnHealthCheck.sh  # run all ncnHealthChecks"
-     	      echo "     ncnHealthCheck.sh -s <health_check_name> # run a specific health check"
-	      echo "     (-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
+        s) single_test=$OPTARG;;
+        h) echo "usage: ncnHealthCheck.sh  # run all ncnHealthChecks"
+     	   echo "     ncnHealthCheck.sh -s <health_check_name> # run a specific health check"
+	   echo "     (-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
 ncn_uptimes, node_resource_consumption, no_wipe_status, node_pod_counts, pods_not_running)"
-              exit 1;;
-	  \?) echo "usage: ncnHealthCheck.sh  # run all ncnHealthChecks"
-	      echo "     ncnHealthCheck.sh -s <health_check_name> # run a specific health check"
-	      echo "     (-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
+           exit 1;;
+       \?) echo "usage: ncnHealthCheck.sh  # run all ncnHealthChecks"
+           echo "     ncnHealthCheck.sh -s <health_check_name> # run a specific health check"
+           echo "     (-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
 ncn_uptimes, node_resource_consumption, no_wipe_status, node_pod_counts, pods_not_running)"
-              exit 1;;
+           exit 1;;
     esac
 done
 
@@ -89,8 +90,6 @@ ncn_uptimes, node_resource_consumption, no_wipe_status, node_pod_counts, pods_no
 }
 
 get_nodes() {
-    sshOptions="-q -o StrictHostKeyChecking=no"
-
     # Get master nodes:
     mNcnNodes=$(kubectl get nodes --selector='node-role.kubernetes.io/master' \
                         --no-headers=true | awk '{print $1}' | tr "\n", " ")
@@ -437,6 +436,11 @@ no_wipe_status() {
             echo "Failed to obtain xname for $ncn_i"
             continue;
         fi
+        if [[ $noWipeFail -eq 2 ]]
+        then
+            echo "$xName - unavailable"
+            continue
+        fi
         noWipe=""
         iter=0
         # Because we're using bootparameters instead of bootscript, this loop is likely no longer
@@ -463,7 +467,7 @@ no_wipe_status() {
         exit_code=1
     elif [[ $noWipeFail -eq 2 ]]
     then
-        echo " --- FAILED --- Failed to get token, skipped atleast one metal.no-wipe check.";
+        echo " --- FAILED --- Failed to get token, skipped metal.no-wipe checks. Could not verify no-wipe status.";
         failureMsg="${failureMsg}\nFAIL: Failed to get token, skipped metal.no-wipe check. Could not verify no-wipe status."
         exit_code=1
     else echo " --- PASSED ---"; fi
@@ -515,6 +519,7 @@ print_end_statement() {
     fi
     echo
     echo "Two informative tests were run which checked 'NCN uptimes' and 'worker NCN node pod counts'. These results can be manually checked."
+    echo
 }
 
 run_complete_health_check() {
