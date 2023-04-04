@@ -2,7 +2,7 @@
 #
 # MIT License
 #
-# (C) Copyright 2022-2022 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2022-2023 Hewlett Packard Enterprise Development LP
 #
 # Permission is hereby granted, free of charge, to any person obtaining a
 # copy of this software and associated documentation files (the "Software"),
@@ -93,7 +93,7 @@ do
     members="$(kubectl get pod -n $c_ns -l "cluster-name=$c_name,application=spilo" \
              -o custom-columns=NAME:.metadata.name --no-headers)"
     numMembers=$(echo "$members" | wc -l)
-    # check 3 custer members for all (except 2 cluster members for sma-postgres-cluster)
+    # check 3 cluster members for all (except 2 cluster members for sma-postgres-cluster)
     if [[ $c_name == "sma-postgres-cluster" ]]; then
       	if [[ $numMembers -ne 2 ]]; then
 	    echo "--- ERROR --- $c cluster only has ${numMembers}/2 cluster members"
@@ -209,7 +209,7 @@ leader pod $leader ---"
 	        if [[ $lag != '|' ]] && [[ $lag == 'unknown' || $lag -gt 0 ]]; then
 	            echo "--- WARNING --- $c_name members have Lag"; echo
                     failureMsg="${failureMsg}\nWARNING: $c_name members have Lag. Lag does not always indicate \
-there is a problem. Look below to see if prometheous alerts for this are firing."
+there is a problem. Look below to see if Prometheus alerts for this are firing."
                     lagWarning=1
                     lagFlag=1
 		    break
@@ -248,9 +248,9 @@ if [[ -z $failureMsg ]]; then echo "PASSED. All postgresql checks passed."
 else echo -e "--- FAILURE --- \n \n- Errors and Warnings are printed below - $failureMsg"; fi
 
 if [[ $lagFlag -eq 1 ]]; then
-    # look at prometheous alerts
+    # look at Prometheus alerts
     echo
-    echo "**** Due to Lag being detected, Promtheous alerts will be checked to see if any Postgres Lag alerts are firing ****"
+    echo "**** Due to Lag being detected, Prometheus alerts will be checked to see if any Postgres Lag alerts are firing ****"
     echo " -- Analysis of output is needed to determine if lag is causing a problem --"
     echo " -- If nothing is printed below the alert title, then the Lag is likely not causing issues --"
     clusterIP=$(kubectl -n sysmgmt-health get svc cray-sysmgmt-health-promet-prometheus -o jsonpath='{.spec.clusterIP}')

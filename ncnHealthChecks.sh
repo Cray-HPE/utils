@@ -218,7 +218,7 @@ etcd_cluster_balance() {
             for node in $wnodes
             do
                 num_pods_per_node=$(echo $wnodes | grep -o $node | wc -l)
-                if [[ $num_pods_per_node -gt 1 ]]; then etcdPodHealthFail=2; echo "ERROR: atleast 2 pods running on the same node."; echo; fi
+                if [[ $num_pods_per_node -gt 1 ]]; then etcdPodHealthFail=2; echo "ERROR: at least 2 pods running on the same node."; echo; fi
             done
         done
     done
@@ -228,8 +228,8 @@ etcd_cluster_balance() {
         failureMsg="${failureMsg}\nFAIL: the incorrect number of pods is running in an etcd cluster."
     elif [[ $etcdPodHealthFail -eq 2 ]]
     then
-        echo " --- FAILED --- atleast 2 etcd pods running on the same worker node, should be on seperate nodes.";
-        failureMsg="${failureMsg}\nFAIL: atleast 2 etcd pods running on the same worker node, should be on seperate nodes."
+        echo " --- FAILED --- at least 2 etcd pods running on the same worker node, should be on separate nodes.";
+        failureMsg="${failureMsg}\nFAIL: at least 2 etcd pods running on the same worker node, should be on separate nodes."
         exit_code=1
     else echo " --- PASSED --- "; fi
     echo
@@ -257,8 +257,8 @@ Namespaces. ==="
     done
     if [[ $etcdAlarmFail -eq 1 ]]
     then
-        echo " --- FAILED --- atleast one etcd cluster has alarms set.";
-        failureMsg="${failureMsg}\nFAIL: atleast one etcd cluster has alarms set or an unhealthy pod."
+        echo " --- FAILED --- at least one etcd cluster has alarms set.";
+        failureMsg="${failureMsg}\nFAIL: at least one etcd cluster has alarms set or an unhealthy pod."
         exit_code=1
     else echo " --- PASSED --- "; fi
     echo
@@ -295,8 +295,8 @@ etcd_database_health() {
     done
     if [[ $etcdDatabaseFail -eq 1 ]]
     then
-        echo " --- FAILED --- atleast one Etcd Cluster's database is unhealthy.";
-        failureMsg="${failureMsg}\nFAIL: atleast one Etcd Cluster's database is unhealthy."
+        echo " --- FAILED --- at least one Etcd Cluster's database is unhealthy.";
+        failureMsg="${failureMsg}\nFAIL: at least one Etcd Cluster's database is unhealthy."
         exit_code=1
     else echo " --- PASSED --- "; fi
     echo
