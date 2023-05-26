@@ -27,8 +27,48 @@ pipeline {
         stage("Publish") {
             steps {
                 script {
-                    publishCsmRpms(component: env.NAME, pattern: "dist/rpmbuild/RPMS/noarch/*.rpm", arch: "noarch", isStable: env.IS_STABLE)
-                    publishCsmRpms(component: env.NAME, pattern: "dist/rpmbuild/SRPMS/*.rpm", arch: "src", isStable: env.IS_STABLE)
+                    publishCsmRpms(
+                        arch: "noarch",
+                        component: env.NAME,
+                        pattern: "dist/rpmbuild/RPMS/noarch/*.rpm",
+                        os: 'sle-15sp2',
+                        isStable: env.IS_STABLE
+                    )
+                    publishCsmRpms(
+                        arch: "src",
+                        component: env.NAME,
+                        pattern: "dist/rpmbuild/SRPMS/*.rpm",
+                        os: 'sle-15sp2',
+                        isStable: env.IS_STABLE,
+                    )
+                    publishCsmRpms(
+                        arch: "noarch",
+                        component: env.NAME,
+                        pattern: "dist/rpmbuild/RPMS/noarch/*.rpm",
+                        os: 'sle-15sp4',
+                        isStable: env.IS_STABLE
+                    )
+                    publishCsmRpms(
+                        arch: "src",
+                        component: env.NAME,
+                        pattern: "dist/rpmbuild/SRPMS/*.rpm",
+                        os: 'sle-15sp4',
+                        isStable: env.IS_STABLE,
+                    )
+                    publishCsmRpms(
+                        arch: "noarch",
+                        component: env.NAME,
+                        pattern: "dist/rpmbuild/RPMS/noarch/*.rpm",
+                        os: 'noos',
+                        isStable: env.IS_STABLE
+                    )
+                    publishCsmRpms(
+                        arch: "src",
+                        component: env.NAME,
+                        pattern: "dist/rpmbuild/SRPMS/*.rpm",
+                        os: 'noos',
+                        isStable: env.IS_STABLE,
+                    )
                 }
             }
         }
