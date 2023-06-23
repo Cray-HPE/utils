@@ -106,137 +106,102 @@ do
         fi
     fi
 
-    # Determine patroni version - remove carriage return without line feed.
     # Set a delay of 10 seconds for use with timeout command:
     Delay=10
-    for member_i in $members
-    do
-        patronictlVersion=$(timeout -k 4 --preserve-status --foreground $Delay \
-kubectl exec -it -n $c_ns -c postgres $member_i -- patronictl version | \
-awk '{ sub("\r", "", $3); print $3 }'; )
 
-        # Check response in case command hung or timed out.
-        # If no response, check the next cluster member:
-        if [[ -n $patronictlVersion ]]
-        then
-            break
-        else
-            continue
-        fi
-        done
-
-	patronictlCmd=""
-	case $patronictlVersion in
-            "1.6.4" )
-                patronictlCmd="\$(timeout -k 4 --preserve-status --foreground \
-$Delay kubectl -n $c_ns -c postgres exec \$m -- patronictl list 2>/dev/null | awk ' \$8 == \
- \"Leader\" && \$10 == \"running\" {print \$4}')"
-		getLagCmd="\$(kubectl -n $c_ns -c postgres exec \$leader -- patronictl list 2>/dev/null | grep running \
-| grep -v Leader | awk '{print \$13 \" \" \$14}')"
-		;;
-            "1.6.5" )
-                patronictlCmd="\$(timeout -k 4 --preserve-status --foreground \
+    patronictlCmd="\$(timeout -k 4 --preserve-status --foreground \
 $Delay kubectl -n $c_ns -c postgres exec \$m -- patronictl list 2>/dev/null | awk ' \$6 == \
 \"Leader\" && \$8 == \"running\" {print \$2}')"
-		getLagCmd="\$(kubectl -n $c_ns -c postgres exec \$leader -- patronictl list 2>/dev/null | grep running \
+    getLagCmd="\$(kubectl -n $c_ns -c postgres exec \$leader -- patronictl list 2>/dev/null | grep running \
 | grep -v Leader | awk '{print \$11 \" \" \$12}')"
-		;;
-            * )
-                echo "Unexpected Patronictl version \"$patronictlVersion\" for \
-the $c_name postgres clusters in the $c_ns namespace."
-                echo
-                echo $dottedLine
-                echo $dottedLine
-                echo
-                continue
-                ;;
-        esac
 
-	# Find the leader:
-        podDescribe=" non-leader"
-        for m in $members
-        do
-            eval leader="$patronictlCmd"
-            if [ -n "$leader" ]
-            then
-                break;
-            fi
-        done
-        if [ -z "$leader" ]
+    # Find the leader:
+    podDescribe=" non-leader"
+    for m in $members
+    do
+        eval leader="$patronictlCmd"
+        if [ -n "$leader" ]
         then
-	    failureMsg="${failureMsg}\nERROR: Unable to determine a leader for the $c_name cluster in \
+            break;
+        fi
+    done
+    if [ -z "$leader" ]
+    then
+        failureMsg="${failureMsg}\nERROR: Unable to determine a leader for the $c_name cluster in \
 $numMembers pods"
-            podDescribe=""
-            echo "=== ********************************************************\
+        podDescribe=""
+        echo "=== ********************************************************\
 ************************** ==="
-            echo "=== ****** Unable to determine a leader for the $c_name cluster in \
+        echo "=== ****** Unable to determine a leader for the $c_name cluster in \
 $numMembers pods ****** ==="
-            echo "=== ********************************************************\
+        echo "=== ********************************************************\
 ************************** ==="
-            echo
-            echo "--- Patronictl version: $patronictlVersion ---"
-            echo
-            kubectl get pods -A -o wide | grep "NAME\|$c_name"
-            other=$members
-        else
-            # Have a leader:
-            echo "=== Looking at patronictl list info for the $c_name cluster \
+        echo
+        echo "--- Patronictl version: $patronictlVersion ---"
+        echo
+        kubectl get pods -A -o wide | grep "NAME\|$c_name"
+        other=$members
+    else
+        # Have a leader:
+        echo "=== Looking at patronictl list info for the $c_name cluster \
 with leader pod: $leader ==="
 
-            other="$(echo $members | xargs -n 1 | grep -v $leader)"
+        other="$(echo $members | xargs -n 1 | grep -v $leader)"
 
-            echo; echo "--- patronictl, version $patronictlVersion, list for $c_ns \
+        echo; echo "--- patronictl, version $patronictlVersion, list for $c_ns \
 leader pod $leader ---"
-            kubectl -n $c_ns -c postgres exec $leader -- patronictl list 2>/dev/null
+        kubectl -n $c_ns -c postgres exec $leader -- patronictl list 2>/dev/null
 
-            # verify the state of each cluster member is 'running'
-	    membersRunningPatroniFail=0
-	    num_running_patronictl=$(kubectl -n $c_ns -c postgres exec $leader -- patronictl list 2>/dev/null | grep running | wc -l)
-	    if [[ ! -z $(echo $leader | grep 'sma-postgres-cluster') ]]; then
-                if [[ $num_running_patronictl -ne 2 ]]; then membersRunningPatroniFail=1; fi
-            else
-	         if [[ $num_running_patronictl -ne 3 ]]; then membersRunningPatroniFail=1; fi
-	    fi
-	    if [[ $membersRunningPatroniFail -eq 1 ]]; then
-                echo "--- ERROR --- state of each $c_name member is not 'running'"
-                failureMsg="${failureMsg}\nERROR: state of each $c_name member is not 'running'"
-	    fi
-
-	    # verify there is no large or growing Lag
-            lagWarning=0
-            eval lagValues="$getLagCmd"
-	    for lag in $lagValues; do
-	        if [[ $lag != '|' ]] && [[ $lag == 'unknown' || $lag -gt 0 ]]; then
-	            echo "--- WARNING --- $c_name members have Lag"; echo
-                    failureMsg="${failureMsg}\nWARNING: $c_name members have Lag. Lag does not always indicate \
-there is a problem. Look below to see if Prometheus alerts for this are firing."
-                    lagWarning=1
-                    lagFlag=1
-		    break
-                fi
-	    done
-	    kubectl get pods -A -o wide | grep "NAME\|$c_name"
-	    # check that all pods are running
-            num_running=$(kubectl get pods -A -o wide | grep $c_name | grep Running | grep -v pooler | wc -l)
-	    has_pooler_pods=$(kubectl get pods -A -o wide | grep $c_name | grep pooler)
-	    num_pooler_running=$(kubectl get pods -A -o wide | grep $c_name | grep Running | grep pooler | wc -l)
-	    podsRunningFail=0
-	    if [[ $c_name == "sma-postgres-cluster" ]]; then
-	        if [[ $num_running -ne 2 ]]; then podsRunningFail=1; fi
-	    else
-	        if [[ $num_running -ne 3 ]]; then podsRunningFail=1; fi
-	    fi
-            if [[ ! -z $has_pooler_pods && $num_pooler_running -ne 3 ]]; then podsRunningFail=1; fi # 3 pooler pods is default value but this is configurable
-	    if [[ $podsRunningFail -eq 1 ]]; then
-                echo "--- ERROR --- not all $c_name pods have status 'Running'"
-                failureMsg="${failureMsg}\nERROR: not all $c_name pods have status 'Running'"
-	    fi
-            if [[ $podsRunningFail -eq 1 || $lagWarning -eq 1 || $membersRunningPatroniFail -eq 1 ]]; then printErrorLogs; fi
+        # verify the state of each cluster member is 'running'
+        membersRunningPatroniFail=0
+        num_running_patronictl=$(kubectl -n $c_ns -c postgres exec $leader -- patronictl list 2>/dev/null | grep running | wc -l)
+        if [[ ! -z $(echo $leader | grep 'sma-postgres-cluster') ]]; then
+            if [[ $num_running_patronictl -ne 2 ]]; then membersRunningPatroniFail=1; fi
+        else
+            if [[ $num_running_patronictl -ne 3 ]]; then membersRunningPatroniFail=1; fi
         fi
-        echo;
-        echo $dottedLine
-        echo $dottedLine
-        echo
+	if [[ $membersRunningPatroniFail -eq 1 ]]; then
+            echo "--- ERROR --- state of each $c_name member $m is not 'running'"
+            failureMsg="${failureMsg}\nERROR: state of each $c_name member is not 'running'"
+	fi
+
+	# verify there is no large or growing Lag
+        lagWarning=0
+        eval lagValues="$getLagCmd"
+	for lag in $lagValues; do
+	    if [[ $lag != '|' ]] && [[ $lag == 'unknown' || $lag -gt 0 ]]; then
+	        echo "--- WARNING --- $c_name members have Lag"; echo
+                failureMsg="${failureMsg}\nWARNING: $c_name members have Lag. Lag does not always indicate \
+there is a problem. Look below to see if prometheus alerts for this are firing."
+                lagWarning=1
+                lagFlag=1
+	        break
+            fi
+	done
+
+	startswith="^${c_name}"
+	kubectl get pods -A -o wide | grep NAME; kubectl get pods -A -o wide | awk -v c="$startswith" '$2 ~ c { print $0 }' | grep "$c_name"
+	# check that all pods that startwith $c_name are running
+        num_running=$(kubectl get pods -A -o wide | awk -v c="$startswith" '$2 ~ c { print $0 }' | grep Running | grep -v pooler | wc -l)
+	has_pooler_pods=$(kubectl get pods -A -o wide | awk -v c="$startswith" '$2 ~ c { print $0 }' | grep pooler)
+	num_pooler_running=$(kubectl get pods -A -o wide | awk -v c="$startswith" '$2 ~ c { print $0 }' | grep Running | grep pooler | wc -l)
+	podsRunningFail=0
+	if [[ $c_name == "sma-postgres-cluster" ]]; then
+	    if [[ $num_running -ne 2 ]]; then podsRunningFail=1; fi
+	else
+	    if [[ $num_running -ne 3 ]]; then podsRunningFail=1; fi
+	fi
+        if [[ ! -z $has_pooler_pods && $num_pooler_running -ne 3 ]]; then podsRunningFail=1; fi # 3 pooler pods is default value but this is configurable
+	if [[ $podsRunningFail -eq 1 ]]; then
+            echo "--- ERROR --- not all $c_name pods have status 'Running'"
+            failureMsg="${failureMsg}\nERROR: not all $c_name pods have status 'Running'"
+	fi
+        if [[ $podsRunningFail -eq 1 || $lagWarning -eq 1 || $membersRunningPatroniFail -eq 1 ]]; then printErrorLogs; fi
+    fi
+    echo;
+    echo $dottedLine
+    echo $dottedLine
+    echo
 done
 echo "=== kubectl get pods -A -o wide | grep \"NAME\|postgres-\" |\
  grep -v \"operator\|Completed\|pooler\" ==="
@@ -248,7 +213,7 @@ if [[ -z $failureMsg ]]; then echo "PASSED. All postgresql checks passed."
 else echo -e "--- FAILURE --- \n \n- Errors and Warnings are printed below - $failureMsg"; fi
 
 if [[ $lagFlag -eq 1 ]]; then
-    # look at Prometheus alerts
+    # look at prometheus alerts
     echo
     echo "**** Due to Lag being detected, Prometheus alerts will be checked to see if any Postgres Lag alerts are firing ****"
     echo " -- Analysis of output is needed to determine if lag is causing a problem --"
