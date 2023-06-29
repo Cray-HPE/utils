@@ -36,12 +36,12 @@ do
         s) single_test=$OPTARG;;
         h) echo "usage: ncnHealthCheck.sh  # run all ncnHealthChecks"
      	   echo "     ncnHealthCheck.sh -s <health_check_name> # run a specific health check"
-	   echo "     (-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
+	   echo "     (-s options are node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
 ncn_uptimes, node_resource_consumption, no_wipe_status, node_pod_counts, pods_not_running)"
            exit 1;;
        \?) echo "usage: ncnHealthCheck.sh  # run all ncnHealthChecks"
            echo "     ncnHealthCheck.sh -s <health_check_name> # run a specific health check"
-           echo "     (-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
+           echo "     (-s options are node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
 ncn_uptimes, node_resource_consumption, no_wipe_status, node_pod_counts, pods_not_running)"
            exit 1;;
     esac
@@ -77,7 +77,7 @@ main() {
         $single_test
         if [[ $? -ne 0 ]]
         then
-            echo "(-s options are   node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
+            echo "(-s options are node_status, ceph_health_status, etcd_health_status, etcd_cluster_balance, etcd_alarm_check, etcd_database_health, etcd_backups_check, \
 ncn_uptimes, node_resource_consumption, no_wipe_status, node_pod_counts, pods_not_running)"
             exit 2;
         fi
@@ -206,7 +206,7 @@ etcd_cluster_balance() {
     date
     for ns in services
     do
-        for cluster in $(kubectl get statefulsets.apps -A | grep bitnami-etcd | awk '{print $2}')
+        for cluster in $(kubectl get statefulsets.apps -A | awk '/bitnami-etcd/ {print $2}')
         do
             # check each cluster contains the correct number of pods
             kubectl get pod -n $ns -o wide | grep $cluster | grep -v snapshotter; echo ""
@@ -305,21 +305,15 @@ etcd_database_health() {
 etcd_backups_check() {
     echo "**************************************************************************"
     echo
-    echo "=== List automated etcd backups on system. ==="
-    echo "=== Etcd Clusters with Automatic Etcd Back-ups Configured: ==="
-    echo "=== BOS, BSS, CRUS, and FAS ==="
-    echo "=== May want to ensure that automated back-ups are up to-date ==="
-    echo "=== and that automated back-ups continue after NCN worker reboot. ==="
-    echo "=== Clusters without Automated Backups: ==="
-    echo "=== HBTD, HMNFD, REDS, UAS & CPS ==="
-    echo "=== Automatic backups generated after cluster has been running 24 hours. ==="
-    echo "=== Backups can be listed as follows:"
-    echo "=== % /opt/cray/platform-utils/etcd/etcd-util.sh list_backups cray-bos"
+    echo "=== Verify etcd clusters have a backup in the last 24 hours. ==="
+    echo "=== The complete list of backups can be listed as follows:"
+    echo "=== % /opt/cray/platform-utils/etcd/etcd-util.sh list_backups -"
     backupHealthFail=0
     date
     current_date_sec=$(date +"%s")
     one_day_sec=86400
-    for cluster in cray-bos cray-bss cray-crus cray-fas cray-uas-mgr
+    clusters=$(kubectl get statefulsets.apps -A | awk '/bitnami-etcd/ {print $2}' | sed s/-bitnami-etcd//g)
+    for cluster in $clusters
     do
         echo; echo "-- $cluster -- backups"
         backup_within_day=""
