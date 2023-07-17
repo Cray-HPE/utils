@@ -26,4 +26,4 @@ while read ns pod node; do
         fi
 	EOF
   done <<< "`kubectl -n $ns get pod $pod -o yaml | grep ' - containerID'`"
-done <<<"$(kubectl get pods -A -o wide | grep $str | grep Running | awk '{print $1 " " $2 " " $8}')"
+done <<<"$(kubectl get pods -A -o wide -o=custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,NODE:.spec.nodeName,STATUS:.status.phase | grep $str | grep Running | awk '{print $1 " " $2 " " $3}')"
