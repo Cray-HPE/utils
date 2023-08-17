@@ -214,7 +214,7 @@ etcd_cluster_balance() {
             expected_num_pods=$(kubectl get statefulset $cluster -n $ns -o jsonpath='{.spec.replicas}')
             if [[ $num_pods -ne $expected_num_pods ]]; then etcdPodHealthFail=1; echo "ERROR: incorrect number of pods running."; echo; fi
             # check that no two pods are on the same worker node
-            wnodes=$(kubectl get pod -n $ns -o wide | grep $cluster | grep -v snapshotter | awk '{print $7}')
+            wnodes=$(kubectl get pod -n $ns -o wide -o=custom-columns=NAME:.metadata.name,NODE:.spec.nodeName | awk "/${cluster}/ && !/snapshotter/ "'{print $2}')
             for node in $wnodes
             do
                 num_pods_per_node=$(echo $wnodes | grep -o $node | wc -l)
