@@ -26,8 +26,8 @@
 
 failureMsg=""
 exit_code=0
-# Set a delay of 15 seconds for use with timeout and ssh commands:
-Delay=${Delay:-15}
+# Set a delay of 5 seconds for use with timeout and ssh commands:
+Delay=${Delay:-5}
 sshOptions="-q -o StrictHostKeyChecking=no -o ConnectTimeout=$Delay"
 
 while getopts s:h stack
@@ -435,15 +435,7 @@ no_wipe_status() {
             echo "$xName - unavailable"
             continue
         fi
-        noWipe=""
-        iter=0
-        # Because we're using bootparameters instead of bootscript, this loop is likely no longer
-        # necessary. However, it also doesn't hurt to have it.
-        while [[ -z $noWipe && $iter -lt 5 ]]; do
-            noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootparameters?name=${xName}" | grep -o "metal.no-wipe=[01]")
-            if [[ -z $noWipe ]]; then sleep 3; fi
-            iter=$(($iter + 1))
-        done
+        noWipe=$(curl -s -k -H "Authorization: Bearer ${TOKEN}" "https://api-gw-service-nmn.local/apis/bss/boot/v1/bootparameters?name=${xName}" | grep -o "metal.no-wipe=[01]")
         if [[ -z $noWipe ]]
         then
             noWipe='unavailable'
