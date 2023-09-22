@@ -66,17 +66,16 @@ for node in $all_nodes; do
 done
 
 # Make changes to the installation prefix a bit easier with vars
-prefix=/var/lib/spire
-conf="${prefix}/conf"
-socket="${prefix}/agent.sock"
-datadir="${prefix}/data"
-svidkey="${datadir}/svid.key"
-bundleder="${prefix}/bundle.der"
-agentsvidder="${prefix}/agent_svid.der"
-jointoken="${conf}/join_token"
-spireagent="${conf}/spire-agent.conf"
-spirebundle="${conf}/bundle.crt"
-tpmprovsioner="/opt/cray/cray-spire/tpm-provisioner-client"
+PREFIX=/var/lib/spire
+CONF="${PREFIX}/conf"
+SOCKET="${PREFIX}/agent.sock"
+DATADIR="${PREFIX}/data"
+SVIDKEY="${DATADIR}/svid.key"
+BUNDLEDER="${PREFIX}/bundle.der"
+AGENTSVIDDER="${PREFIX}/agent_svid.der"
+SPIREAGENT="${CONF}/spire-agent.conf"
+SPIREBUNDLE="${CONF}/bundle.crt"
+TPMPROVISIONER="/opt/cray/cray-spire/tpm-provisioner-client"
 
 for node in $tpm_nodes; do
 	if sshnh "$node" test -f /var/lib/spire/conf/tpm.enabled; then
@@ -85,22 +84,22 @@ for node in $tpm_nodes; do
 		XNAME=$(sshnh "$node" cat /etc/cray/xname)
 
 		curl -H "Authorization: Bearer $KC_TOKEN" -d "xname=$XNAME" $API_GATEWAY:/apis/tpm-provisioner/whitelist/add
-		sshnh "$node" ${tpmprovsioner}
+		sshnh "$node" ${TPMPROVISIONER}
 		sshnh "$node" systemctl stop spire-agent.service
 
-		if sshnh "$node" ls "${svidkey}" >/dev/null 2>&1; then
+		if sshnh "$node" ls "${SVIDKEY}" >/dev/null 2>&1; then
 			echo "$node was once joined to spire. Cleaning up old files"
-			sshnh "$node" rm "${svidkey}" "${bundleder}" "${agentsvidder}" || true
+			sshnh "$node" rm "${SVIDKEY}" "${BUNDLEDER}" "${AGENTSVIDDER}" || true
 		fi
 		echo "$node is being joined to spire."
 		cat << EOF > /tmp/spire-tpm-conf.conf
 agent {
-  data_dir = "/var/lib/spire"
+  data_dir = "$PREFIX"
   log_level = "INFO"
   server_address = "$LOADBALANCERIP"
   server_port = "8081"
-  socket_path = "/var/lib/spire/agent.sock"
-  trust_bundle_path = "/var/lib/spire/conf/bundle.crt"
+  socket_path = "$SOCKET"
+  trust_bundle_path = "$SPIREBUNDLE"
   trust_domain = "shasta"
 }
 
@@ -115,7 +114,7 @@ plugins {
 
   KeyManager "disk" {
     plugin_data {
-        directory = "/var/lib/spire/data"
+        directory = "$DATADIR"
     }
   }
 
@@ -126,7 +125,7 @@ plugins {
   }
 }
 EOF
-		scpnh /tmp/spire-tpm-conf.conf "$node":${spireagent}
+		scpnh /tmp/spire-tpm-conf.conf "$node":${SPIREAGENT}
 		sshnh "$node" systemctl start spire-agent
 		sshnh "$node" touch /var/lib/spire/conf/tpm.enabled
 	fi
