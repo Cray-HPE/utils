@@ -1,6 +1,6 @@
 # This spec file generates an RPM that installs platform utility
 # scripts into the /opt/cray/platform-utils directory.
-# Copyright 2020-2021 Hewlett Packard Enterprise Development LP
+# Copyright 2020-2023 Hewlett Packard Enterprise Development LP
 
 %define utils_dir /opt/cray/platform-utils
 
@@ -37,6 +37,7 @@ the /opt/cray/platform-utils directory.
 %{utils_dir}/s3/download-file.py
 %{utils_dir}/s3/list-objects.py
 %{utils_dir}/spire/fix-spire-on-storage.sh
+%{utils_dir}/spire/spire-enable-tpm.sh
 %{utils_dir}/etcd/etcd_restore_rebuild.sh
 %{utils_dir}/etcd/etcd-util.sh
 
@@ -60,5 +61,6 @@ install -m 755 grafterm.sh %{buildroot}%{utils_dir}
 install -m 755 s3/list-objects.py %{buildroot}%{utils_dir}/s3
 install -m 755 s3/download-file.py %{buildroot}%{utils_dir}/s3
 install -m 755 spire/fix-spire-on-storage.sh %{buildroot}%{utils_dir}/spire
+install -m 755 spire/spire-enable-tpm.sh %{buildroot}%{utils_dir}/spire
 install -m 755 etcd/etcd_restore_rebuild.sh %{buildroot}%{utils_dir}/etcd
 install -m 755 etcd/etcd-util.sh %{buildroot}%{utils_dir}/etcd
