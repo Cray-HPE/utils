@@ -22,8 +22,6 @@
 # ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 # OTHER DEALINGS IN THE SOFTWARE.
 #
-set -euo pipefail
-
 RETRY=0
 MAX_RETRIES=30
 RETRY_SECONDS=10
@@ -43,6 +41,25 @@ URL="https://cray-spire-tokens.spire:54440/api/token"
 POD=$(kubectl get pods -n spire | grep cray-spire-server | grep Running | awk 'NR==1{print $1}')
 LOADBALANCERIP=$(kubectl get service -n spire cray-spire-local --no-headers --output=jsonpath='{.spec.loadBalancerIP}')
 
+RETRY=0
+until [[ ! -z $POD && ! -z $LOADBALANCERIP ]]; do
+	if [[ "$RETRY" -lt "$MAX_RETRIES" ]]; then
+		RETRY="$((RETRY + 1))"
+		echo "Either POD or LOADBALANCERIP was not set. Will retry after $RETRY_SECONDS seconds. ($RETRY/$MAX_RETRIES)"
+	else
+		if [[ -z $POD ]]; then
+			echo "No cray-spire-server pod is running after $(echo "$RETRY_SECONDS" \* "$MAX_RETRIES" | bc) seconds."
+		fi
+		if [[ -z $LOADBALANCERIP ]]; then
+			echo "cray-spire-local service is not ready after $(echo "$RETRY_SECONDS" \* "$MAX_RETRIES" | bc) seconds."
+		fi
+		exit 1
+	fi
+	sleep "$RETRY_SECONDS"
+	POD=$(kubectl get pods -n spire | grep cray-spire-server | grep Running | awk 'NR==1{print $1}')
+	LOADBALANCERIP=$(kubectl get service -n spire cray-spire-local --no-headers --output=jsonpath='{.spec.loadBalancerIP}')
+done
+
 function sshnh() {
 	/usr/bin/ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "$@"
 }
@@ -51,6 +68,8 @@ if hostname | grep -q 'pit'; then
 	echo "This script is not supported on pit nodes. Please run it on ncn-m002."
 	exit 1
 fi
+
+set -euo pipefail
 
 nodes=$(ceph node ls | jq -r '.[] | keys[]' | sort -u)
 
