@@ -209,16 +209,16 @@ etcd_cluster_balance() {
         for cluster in $(kubectl get statefulsets.apps -A | awk '/bitnami-etcd/ {print $2}')
         do
             # check each cluster contains the correct number of pods
-            kubectl get pod -n $ns -o wide | grep $cluster | grep -v snapshotter; echo ""
-            num_pods=$(kubectl get pod -n $ns -o wide | grep $cluster | grep -v snapshotter | wc -l)
+            kubectl get pod -n $ns -o wide | awk "/${cluster}/ && !/snapshotter|defrag/"; echo ""
+            num_pods=$(kubectl get pod -n $ns -o wide | awk "/${cluster}/ && !/snapshotter|defrag/" | wc -l)
             expected_num_pods=$(kubectl get statefulset $cluster -n $ns -o jsonpath='{.spec.replicas}')
-            if [[ $num_pods -ne $expected_num_pods ]]; then etcdPodHealthFail=1; echo "ERROR: incorrect number of pods running."; echo; fi
+            if [[ $num_pods -ne $expected_num_pods ]]; then etcdPodHealthFail=1; echo "ERROR: incorrect number of pods running for cluster ${cluster}."; echo; fi
             # check that no two pods are on the same worker node
-            wnodes=$(kubectl get pod -n $ns -o wide -o=custom-columns=NAME:.metadata.name,NODE:.spec.nodeName | awk "/${cluster}/ && !/snapshotter/ "'{print $2}')
+            wnodes=$(kubectl get pod -n $ns -o wide -o=custom-columns=NAME:.metadata.name,NODE:.spec.nodeName | awk "/${cluster}/ && !/snapshotter|defrag/ "'{print $2}')
             for node in $wnodes
             do
                 num_pods_per_node=$(echo $wnodes | grep -o $node | wc -l)
-                if [[ $num_pods_per_node -gt 1 ]]; then etcdPodHealthFail=2; echo "ERROR: at least 2 pods running on the same node."; echo; fi
+                if [[ $num_pods_per_node -gt 1 ]]; then etcdPodHealthFail=2; echo "ERROR: at least 2 pods running on the same node for cluster ${cluster}."; echo; fi
             done
         done
     done
