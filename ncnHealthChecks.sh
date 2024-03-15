@@ -46,6 +46,14 @@ ncn_uptimes, node_resource_consumption, no_wipe_status, node_pod_counts, pods_no
     esac
 done
 
+print_warning() {
+    local msg
+    msg="$*"
+    echo " --- WARNING --- ${msg}"
+    failureMsg="${failureMsg}\nWARNING: ${msg}"
+    # this is a warning, not a failure, so do not update $exit_code
+}
+
 function get_token() {
   cnt=0
   TOKEN=""
@@ -193,6 +201,7 @@ etcd_health_status() {
 }
 
 etcd_cluster_balance() {
+    local tmpfile etcdPodHealthFail ns cluster num_pods expected_num_pods wnodes node num_pods_per_node
     echo "**************************************************************************"
     echo
     echo "=== Check the Number of Pods in Each Cluster. Verify they are Balanced. ==="
@@ -200,18 +209,21 @@ etcd_cluster_balance() {
     echo "=== Ensure that no two pods in a given cluster exist on the same worker node. ==="
     etcdPodHealthFail=0
     date
+    tmpfile=$(mktemp) || {
+        print_warning "unable to create temporary file; cannot check cluster balance." ; echo ; return; }
     for ns in services
     do
+        kubectl get pod -n $ns -o wide > "${tmpfile}"
         for cluster in $(kubectl get etcdclusters.etcd.database.coreos.com \
                                 -n $ns | grep -v NAME | awk '{print $1}')
         do
             # check each cluster contains the correct number of pods
-            kubectl get pod -n $ns -o wide | grep $cluster; echo ""
-            num_pods=$(kubectl get pod -n $ns -o wide | grep $cluster | wc -l)
+            grep $cluster "${tmpfile}"; echo ""
+            num_pods=$(grep -c $cluster "${tmpfile}")
             expected_num_pods=$(kubectl get etcd $cluster -n $ns -o jsonpath='{.spec.size}')
-            if [[ $num_pods -ne $expected_num_pods ]]; then etcdPodHealthFail=1; echo "ERROR: incorrect number of pods running."; echo; fi
+            if [[ $num_pods -ne $expected_num_pods ]]; then etcdPodHealthFail=1; echo "ERROR: incorrect number of pods running for cluster ${cluster}."; echo; fi
             # check that no two pods are on the same worker node
-            wnodes=$(kubectl get pod -n $ns -o wide | grep $cluster | awk '{print $7}')
+            wnodes=$(grep $cluster "${tmpfile}" | awk '{print $7}')
             for node in $wnodes
             do
                 num_pods_per_node=$(echo $wnodes | grep -o $node | wc -l)
@@ -223,6 +235,7 @@ etcd_cluster_balance() {
     then
         echo " --- FAILED --- the incorrect number of pods is running in an etcd cluster.";
         failureMsg="${failureMsg}\nFAIL: the incorrect number of pods is running in an etcd cluster."
+        exit_code=1
     elif [[ $etcdPodHealthFail -eq 2 ]]
     then
         echo " --- FAILED --- atleast 2 etcd pods running on the same worker node, should be on seperate nodes.";
@@ -235,8 +248,8 @@ etcd_cluster_balance() {
 etcd_alarm_check() {
     echo "**************************************************************************"
     echo
-    echo "=== Check if any \"alarms\" are set for any of the Etcd Clusters in the \
-Services Namespace. ==="
+    echo "=== Check if any \"alarms\" are set for any of the Etcd Clusters in the" \
+         "Services Namespace. ==="
     echo "=== An empty list is returned if no alarms are set ==="
     etcdAlarmFail=0
     for pod in $(kubectl get pods -l app=etcd -n services \
@@ -494,14 +507,6 @@ node_pod_counts() {
     done
     echo " --- This is an informative check. No pass or fail status to report. --- "
     echo
-}
-
-print_warning() {
-    local msg
-    msg="$*"
-    echo " --- WARNING --- ${msg}"
-    failureMsg="${failureMsg}\nWARNING: ${msg}"
-    # this is a warning, not a failure, so do not update $exit_code
 }
 
 pods_not_running() {
