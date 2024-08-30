@@ -99,11 +99,11 @@ ncn_uptimes, node_resource_consumption, no_wipe_status, node_pod_counts, pods_no
 
 get_nodes() {
     # Get master nodes:
-    mNcnNodes=$(kubectl get nodes --selector='node-role.kubernetes.io/master' \
+    mNcnNodes=$(kubectl get nodes --selector='node-role.kubernetes.io/control-plane' \
                         --no-headers=true | awk '{print $1}' | tr "\n", " ")
 
     # Get worker nodes:
-    wNcnNodes=$(kubectl get node --selector='!node-role.kubernetes.io/master' \
+    wNcnNodes=$(kubectl get node --selector='!node-role.kubernetes.io/control-plane' \
                         --no-headers=true | awk '{print $1}' | tr "\n", " ")
 
     # Get reachable master node

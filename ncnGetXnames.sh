@@ -45,11 +45,11 @@ hostName=$(hostname)
 echo "=== Executing on $hostName, $(date) ==="
 
 # Get master nodes:
-mNcnNodes=$(kubectl get nodes --selector='node-role.kubernetes.io/master' \
+mNcnNodes=$(kubectl get nodes --selector='node-role.kubernetes.io/control-plane' \
                     --no-headers=true | awk '{print $1}' | tr "\n", " ") 
 
 # Get worker nodes:
-wNcnNodes=$(kubectl get node --selector='!node-role.kubernetes.io/master' \
+wNcnNodes=$(kubectl get node --selector='!node-role.kubernetes.io/control-plane' \
                     --no-headers=true | awk '{print $1}' | tr "\n", " ")
 
 # Get first master node - should not be the PIT node:
