@@ -1,6 +1,6 @@
 # This spec file generates an RPM that installs platform utility
 # scripts into the /opt/cray/platform-utils directory.
-# Copyright 2020-2023 Hewlett Packard Enterprise Development LP
+# Copyright 2020-2025 Hewlett Packard Enterprise Development LP
 
 %define utils_dir /opt/cray/platform-utils
 
@@ -16,7 +16,7 @@ Source: %{name}-%{version}.tar.bz2
 BuildArchitectures: noarch
 
 Requires: jq
-Requires: python3-boto3
+Requires: python311-boto3
 
 %description
 This RPM when installed will place platform utility scripts in
