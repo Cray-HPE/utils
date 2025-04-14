@@ -41,7 +41,11 @@ done
 
 URL="https://cray-spire-tokens.spire:54440/api/token"
 API_GATEWAY="https://api-gw-service-nmn.local"
-KC_TOKEN=$(jq -r '.access_token' /root/.config/cray/tokens/api_gw_service_nmn_local.vers)
+client_secret=$(kubectl get secrets admin-client-auth -ojsonpath='{.data.client-secret}' | base64 -d)
+KC_TOKEN=$(curl -s -d grant_type=client_credentials \
+        -d client_id=admin-client \
+        --data-urlencode client_secret=${client_secret} \
+        ${API_GATEWAY}/keycloak/realms/shasta/protocol/openid-connect/token | jq -r '.access_token')
 POD=$(kubectl get pods -n spire | grep cray-spire-server | grep Running | awk 'NR==1{print $1}')
 LOADBALANCERIP=$(kubectl get service -n spire cray-spire-cluster --no-headers --output=jsonpath='{.spec.loadBalancerIP}')
 
