@@ -38,6 +38,7 @@ the /opt/cray/platform-utils directory.
 %{utils_dir}/s3/list-objects.py
 %{utils_dir}/spire/fix-spire-on-storage.sh
 %{utils_dir}/spire/spire-enable-tpm.sh
+%{utils_dir}/spire/spire-disable-tpm.sh
 %{utils_dir}/etcd/etcd_restore_rebuild.sh
 %{utils_dir}/etcd/etcd-util.sh
 
@@ -62,5 +63,6 @@ install -m 755 s3/list-objects.py %{buildroot}%{utils_dir}/s3
 install -m 755 s3/download-file.py %{buildroot}%{utils_dir}/s3
 install -m 755 spire/fix-spire-on-storage.sh %{buildroot}%{utils_dir}/spire
 install -m 755 spire/spire-enable-tpm.sh %{buildroot}%{utils_dir}/spire
+install -m 755 spire/spire-disable-tpm.sh %{buildroot}%{utils_dir}/spire
 install -m 755 etcd/etcd_restore_rebuild.sh %{buildroot}%{utils_dir}/etcd
 install -m 755 etcd/etcd-util.sh %{buildroot}%{utils_dir}/etcd
