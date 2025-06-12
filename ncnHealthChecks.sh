@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2020-2024 Hewlett Packard Enterprise Development LP
+# Copyright 2020-2025 Hewlett Packard Enterprise Development LP
 #
 # The ncnHealthChecks script executes a number of NCN system health checks:
 #    Report Kubernetes status for Master and worker nodes
@@ -224,12 +224,12 @@ etcd_cluster_balance() {
         for cluster in $(kubectl get statefulsets.apps -A | awk '/bitnami-etcd/ {print $2}')
         do
             # check each cluster contains the correct number of pods
-            awk "/${cluster}/"' && !/snapshotter|defrag/' "${tmpfile}" ; echo ""
-            num_pods=$(awk "/${cluster}/"' && !/snapshotter|defrag/' "${tmpfile}" | wc -l)
+            awk "/${cluster}/"' && !/snapshotter|defrag|upgrade/' "${tmpfile}" ; echo ""
+            num_pods=$(awk "/${cluster}/"' && !/snapshotter|defrag|upgrade/' "${tmpfile}" | wc -l)
             expected_num_pods=$(kubectl get statefulset $cluster -n $ns -o jsonpath='{.spec.replicas}')
             if [[ $num_pods -ne $expected_num_pods ]]; then etcdPodHealthFail=1; echo "ERROR: incorrect number of pods running for cluster ${cluster}."; echo; fi
             # check that no two pods are on the same worker node
-            wnodes=$(awk "/${cluster}/"' && !/snapshotter|defrag/ {print $2}' "${tmpfile2}")
+            wnodes=$(awk "/${cluster}/"' && !/snapshotter|defrag|upgrade/ {print $2}' "${tmpfile2}")
             for node in $wnodes
             do
                 num_pods_per_node=$(echo $wnodes | grep -o $node | wc -l)
