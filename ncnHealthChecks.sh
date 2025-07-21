@@ -186,7 +186,14 @@ etcd_health_status() {
     eps=$(kubectl get endpoints -A | grep bitnami-etcd | grep -v headless | awk '{print $2}')
     for ep in $eps; do
       ns=$(kubectl get statefulset -A -o json | jq --arg name "${ep}" '.items[].metadata | select (.name==$name) | .namespace' | sed 's/\"//g')
-      for pod in $(kubectl get endpoints ${ep} -n ${ns} -o json | jq -r .subsets[].addresses[].targetRef.name)
+      pods=$(kubectl get endpoints ${ep} -n ${ns} -o json | jq -r .subsets[].addresses[].targetRef.name)
+      if [[ $? -ne 0 || -z $pods ]]
+      then
+        echo "FAILED - Unable to get endpoints or ready pods for ${ep} in namespace ${ns}."
+        etcdHealthFail=1
+        continue
+      fi
+      for pod in $pods
       do
           echo "### ${pod} ###"
           timeout $Delay kubectl -n services exec ${pod} -c etcd -- /bin/sh -c \
