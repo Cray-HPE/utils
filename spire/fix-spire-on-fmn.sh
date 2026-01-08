@@ -99,7 +99,7 @@ for node in $nodes; do
 		fi
 		echo "$node is being joined to spire."
 		XNAME="$(sshnh "$node" cat /proc/cmdline | sed 's/.*xname=\([A-Za-z0-9]*\).*/\1/')"
-		TOKEN="$(kubectl exec -n spire "$POD" --container registration-server -- curl -k -X POST -d type=storage\&xname="$XNAME" "$URL" | tr ':' '=' | tr -d '"{}')"
+		TOKEN="$(kubectl exec -n spire "$POD" --container registration-server -- curl -k -X POST -d type=fmn\&xname="$XNAME" "$URL" | tr ':' '=' | tr -d '"{}')"
 		sshnh "$node" "echo $TOKEN > ${jointoken}"
 		kubectl get configmap -n spire cray-spire-ncn-config -o jsonpath='{.data.spire-agent\.conf}' | sed "s/server_address.*/server_address = \"$LOADBALANCERIP\"/" | sshnh "$node" "cat > ${spireagent}"
 		kubectl get configmap -n spire cray-spire-bundle -o jsonpath='{.data.bundle\.crt}' | sshnh "$node" "cat > ${spirebundle}"
