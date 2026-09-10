@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright 2020-2025 Hewlett Packard Enterprise Development LP
+# Copyright 2020-2026 Hewlett Packard Enterprise Development LP
 #
 # The ncnHealthChecks script executes a number of NCN system health checks:
 #    Report Kubernetes status for Master and worker nodes
@@ -175,7 +175,63 @@ ceph_health_status() {
     fi
 }
 
+# Prints the etcd endpoint names, one per line. Returns 1 if none are found.
+get_etcd_endpoints() {
+    local eps
+    eps=$(kubectl get endpoints -A 2>/dev/null | grep bitnami-etcd | grep -v headless | awk '{print $2}')
+    if [[ -z ${eps} ]]
+    then
+        return 1
+    fi
+    echo "${eps}"
+}
+
+# Prints the namespace of the statefulset backing an etcd endpoint. Returns 1 if
+# it cannot be determined.
+get_etcd_namespace() {
+    local ep ns
+    ep="$1"
+    if [[ -z ${ep} ]]
+    then
+        return 1
+    fi
+    ns=$(kubectl get statefulset -A -o json 2>/dev/null | \
+             jq -r --arg name "${ep}" '.items[]?.metadata | select (.name==$name) | .namespace' 2>/dev/null)
+    if [[ -z ${ns} ]]
+    then
+        return 1
+    fi
+    echo "${ns}"
+}
+
+# Prints the ready pods backing an etcd endpoint, one per line. Returns 1 if the
+# endpoint cannot be queried or has no ready pods.
+#
+# When every pod is unready the Endpoints object carries only notReadyAddresses,
+# leaving .subsets[].addresses null. The '?' operators keep jq from aborting on
+# that null, so the caller sees an empty list rather than an unnoticed error.
+get_etcd_endpoint_pods() {
+    local ep ns endpoint_json pods
+    ep="$1"
+    ns="$2"
+    if [[ -z ${ep} || -z ${ns} ]]
+    then
+        return 1
+    fi
+    if ! endpoint_json=$(kubectl get endpoints "${ep}" -n "${ns}" -o json 2>/dev/null)
+    then
+        return 1
+    fi
+    pods=$(echo "${endpoint_json}" | jq -r '.subsets[]?.addresses[]?.targetRef.name' 2>/dev/null)
+    if [[ -z ${pods} ]]
+    then
+        return 1
+    fi
+    echo "${pods}"
+}
+
 etcd_health_status() {
+    local eps ep ns pods pod
     etcdHealthFail=0
     echo "**************************************************************************"
     echo
@@ -183,11 +239,19 @@ etcd_health_status() {
     echo "=== Verify a \"healthy\" Report for Each Etcd Pod. ==="
     date;
 
-    eps=$(kubectl get endpoints -A | grep bitnami-etcd | grep -v headless | awk '{print $2}')
+    if ! eps=$(get_etcd_endpoints)
+    then
+        echo "FAILED - Unable to find any etcd endpoints."
+        etcdHealthFail=1
+    fi
     for ep in $eps; do
-      ns=$(kubectl get statefulset -A -o json | jq --arg name "${ep}" '.items[].metadata | select (.name==$name) | .namespace' | sed 's/\"//g')
-      pods=$(kubectl get endpoints ${ep} -n ${ns} -o json | jq -r .subsets[].addresses[].targetRef.name)
-      if [[ $? -ne 0 || -z $pods ]]
+      if ! ns=$(get_etcd_namespace "${ep}")
+      then
+        echo "FAILED - Unable to determine the namespace for ${ep}."
+        etcdHealthFail=1
+        continue
+      fi
+      if ! pods=$(get_etcd_endpoint_pods "${ep}" "${ns}")
       then
         echo "FAILED - Unable to get endpoints or ready pods for ${ep} in namespace ${ns}."
         etcdHealthFail=1
@@ -196,7 +260,7 @@ etcd_health_status() {
       for pod in $pods
       do
           echo "### ${pod} ###"
-          timeout $Delay kubectl -n services exec ${pod} -c etcd -- /bin/sh -c \
+          timeout $Delay kubectl -n ${ns} exec ${pod} -c etcd -- /bin/sh -c \
                   "etcdctl endpoint health"; if [[ $? -ne 0 ]]; \
                   then echo "FAILED - Pod Not Healthy"; etcdHealthFail=1; fi
       done
@@ -259,6 +323,7 @@ etcd_cluster_balance() {
 }
 
 etcd_alarm_check() {
+    local eps ep ns pods pod alarms
     echo "**************************************************************************"
     echo
     echo "=== Check if any \"alarms\" are set for any of the Etcd Clusters in all" \
@@ -266,10 +331,25 @@ etcd_alarm_check() {
     echo "=== An empty list is returned if no alarms are set ==="
     etcdAlarmFail=0
 
-    eps=$(kubectl get endpoints -A | grep bitnami-etcd | grep -v headless | awk '{print $2}')
+    if ! eps=$(get_etcd_endpoints)
+    then
+        echo "FAILED - Unable to find any etcd endpoints."
+        etcdAlarmFail=1
+    fi
     for ep in $eps; do
-      ns=$(kubectl get statefulset -A -o json | jq --arg name "${ep}" '.items[].metadata | select (.name==$name) | .namespace' | sed 's/\"//g')
-      for pod in $(kubectl get endpoints ${ep} -n ${ns} -o json | jq -r .subsets[].addresses[].targetRef.name)
+      if ! ns=$(get_etcd_namespace "${ep}")
+      then
+        echo "FAILED - Unable to determine the namespace for ${ep}."
+        etcdAlarmFail=1
+        continue
+      fi
+      if ! pods=$(get_etcd_endpoint_pods "${ep}" "${ns}")
+      then
+        echo "FAILED - Unable to get endpoints or ready pods for ${ep} in namespace ${ns}."
+        etcdAlarmFail=1
+        continue
+      fi
+      for pod in $pods
       do
           echo "### ${pod} Alarms Set: ###"
           alarms=$(timeout $Delay kubectl -n ${ns} exec ${pod} -c etcd -- /bin/sh \
@@ -288,15 +368,31 @@ etcd_alarm_check() {
 }
 
 etcd_database_health() {
+    local eps ep ns pods pod dbc output status
     echo "**************************************************************************"
     echo
     echo "=== Check the health of Etcd Cluster's database in the Services Namespace. ==="
     echo "=== PASS or FAIL status returned. ==="
     etcdDatabaseFail=0
-    eps=$(kubectl get endpoints -A | grep bitnami-etcd | grep -v headless | awk '{print $2}')
+    if ! eps=$(get_etcd_endpoints)
+    then
+        echo "FAILED - Unable to find any etcd endpoints."
+        etcdDatabaseFail=1
+    fi
     for ep in $eps; do
-      ns=$(kubectl get statefulset -A -o json | jq --arg name "${ep}" '.items[].metadata | select (.name==$name) | .namespace' | sed 's/\"//g')
-      for pod in $(kubectl get endpoints ${ep} -n ${ns} -o json | jq -r .subsets[].addresses[].targetRef.name)
+      if ! ns=$(get_etcd_namespace "${ep}")
+      then
+        echo "FAILED - Unable to determine the namespace for ${ep}."
+        etcdDatabaseFail=1
+        continue
+      fi
+      if ! pods=$(get_etcd_endpoint_pods "${ep}" "${ns}")
+      then
+        echo "FAILED - Unable to get endpoints or ready pods for ${ep} in namespace ${ns}."
+        etcdDatabaseFail=1
+        continue
+      fi
+      for pod in $pods
       do
         echo "### ${pod} Etcd Database Check: ###"
         dbc=$(timeout  --preserve-status --foreground $Delay kubectl \
